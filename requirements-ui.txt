@@ -1,0 +1,19 @@
+# Runtime dependencies for the Command Center (xr7620 / container).
+#
+# This is the ACTUAL dependency set of the application. The quantum simulation
+# runs on the GB10 behind an HTTP call, so nothing here touches CUDA, cuQuantum,
+# or Qiskit — see services/gb10_qsim/requirements.txt for that side.
+#
+# Note deliberately: `qiskit`, `qiskit-aer-gpu` and `cuquantum-python-cu12` from
+# the original spec are NOT imported anywhere in this codebase. The architecture
+# moved to cuStateVec-on-the-GB10 (Aer has no aarch64 wheel), which left them
+# vestigial — ~1 GB of wheels that also pinned the interpreter to Python 3.12
+# for no reason. They are kept only in the top-level requirements.txt for local
+# experimentation and are excluded from the deployed image.
+
+streamlit>=1.30.0
+plotly>=5.18.0
+pandas>=2.0.0
+networkx>=3.0
+numpy>=1.24.0
+scipy>=1.10.0

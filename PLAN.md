@@ -85,19 +85,31 @@ statevector ≈ 1 TB of traffic, and the GB10's unified memory does ~270 GB/s.
 - [ ] Cache the cost diagonal across optimizer steps — it is already built once
       per `optimize_qaoa`, but the capability sweep rebuilds it per size.
 
-## M4 — Lab tenant onboarding
+## M4 — Lab tenant onboarding ✅ MOSTLY DONE (2026-07-29)
 
-Currently **not** a registered tenant. Follow `/data/code/dmz/ONBOARDING.md`:
-
-- [ ] `/data/code/dmz/tools/new-tenant qaoa-grid-ops --band work`
-      (work band `.100–.199` — this is Dell/customer-facing)
-- [ ] Containerize the Streamlit app; `dmz13` macvlan for its public face.
-      ⚠ A plain bridge is **not** isolation — it inherits the host's routing.
-- [ ] Relay to Ken: operator must add the Unbound override
+- [x] Registered via `new-tenant qaoa-grid-ops --band work` → **10.0.13.103**
+- [x] Containerized on `dmz13` (`/data/docker/qaoa-grid-ops/`). Caddy is
+      macvlan-only and **cannot reach the host's port** — measured, not assumed —
+      so a host-side process could never have been fronted.
+- [x] Caddy route + Authentik passkey app; external path verified **302 + real
+      Let's Encrypt cert** through the lighthouse.
+- [x] Linked from the portal Demo Floor, with live GB10 state via `/api/gridops`.
+- [ ] ⚠ **OPERATOR STEP OUTSTANDING** — Unbound override
       `qaoa-grid-ops.lab.kenrollins.dev` → `10.0.13.3` (**specific host, never a
-      wildcard** — OPNsense #8051 breaks Unbound LAN-wide).
-- [ ] Verify from off-network (cellular) after the public Cloudflare record lands.
+      wildcard** — OPNsense #8051 breaks Unbound LAN-wide). Until then the name
+      resolves internally to the *public* lighthouse address and LAN traffic
+      hairpins out and back instead of going straight to Caddy.
 - [ ] Expose `/metrics` for Prometheus (`10.0.13.203`).
+- [ ] The minted gateway key in `/data/docker/qaoa-grid-ops/.env` is **unused** —
+      this demo makes no inference calls. Harmless, but don't let it imply one.
+
+## M4.5 — Dependency cleanup
+
+- [ ] `qiskit`, `qiskit-aer-gpu`, `cuquantum-python-cu12` are in the top-level
+      `requirements.txt` and are **imported nowhere**. The architecture moved to
+      cuStateVec-on-the-GB10 and left them vestigial: ~1 GB of wheels that also
+      pin the interpreter to 3.12. The deployed image uses `requirements-ui.txt`
+      and excludes them. Decide whether to drop them outright.
 
 ## M5 — GB10 service hardening
 

@@ -15,8 +15,11 @@ dispatches via `st.navigation` to two pages in `src/ui/views/`:
 **Command Center** (`command_center.py` — 4 tabs, incl. `quantum.py`, the
 audience explainer) and **Architecture** (`architecture.py`).
 
-This app is a lab tenant-in-waiting — it is **not yet registered**. Platform
-contract: `/data/code/dmz/ONBOARDING.md` — follow it, don't copy it. See PLAN.md M4.
+This app **is a registered lab tenant** — see `LAB.md` for its allocation, and
+`/data/code/dmz/ONBOARDING.md` for the platform contract (follow it, don't copy it).
+Live at **https://qaoa-grid-ops.lab.kenrollins.dev** (passkey) → `10.0.13.103:8501`,
+containerized on `dmz13` from `/data/docker/qaoa-grid-ops/`. Linked from the
+portal's Demo Floor, which reads live GB10 state via the portal's `/api/gridops`.
 
 ## Stack
 
