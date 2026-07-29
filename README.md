@@ -17,13 +17,15 @@ air-gapped, with no cloud QPU.
 ## Quick start
 
 ```bash
-# 1. Compute service on the GB10 (once per boot — see PLAN.md M5 for systemd)
-ssh gb10 '~/gridops/services/gb10_qsim/start.sh'
-curl -s http://10.0.13.200:8600/health          # expect max_qubits: 30
+# 1. Claim the GB10 for the demo. Stops the resident NIM and starts gridops-qsim.
+cd /data/code/qaoa-grid-ops
+./tools/gb10-gpu claim                          # → CLAIMED, ceiling 30 qubits
 
 # 2. The dashboard, on xr7620
-cd /data/code/qaoa-grid-ops
 .venv/bin/python -m streamlit run app.py        # → http://<host>:8501
+
+# 3. When finished — give the GPU back to inference
+./tools/gb10-gpu release
 ```
 
 Set **Substation nodes** to 12–16, **layers p** to 2, then press
@@ -67,17 +69,42 @@ services/gb10_qsim/
   start.sh                    setsid-detached launcher
 ```
 
-## The four tabs
+## Pages
+
+### ⚡ Command Center — four tabs
 
 1. **🗺️ Grid Topology & Microgrid Islanding** — transmission network colored by
    island assignment, severed lines dashed red, QAOA convergence, MW accounting,
    and JSON schedule export.
-2. **📊 Simulation Capability** — how large a problem this machine holds, and the
-   exponential memory wall. *Not* a speed comparison — see BRIEF.md.
+2. **⚛️ The Quantum Part** — what is actually quantum here, in five steps from
+   substation to measured bitstring, plus the quantum/classical responsibility
+   split. Opens by stating plainly that this is exact simulation and **not a
+   QPU** — the audience will ask, and answering first is what keeps it credible.
 3. **🔬 Under the Hood** — the QAOA ansatz, optimized (γ, β), and the measured
    probability distribution against the uniform baseline.
-4. **🏗️ Technology Stack Architecture** — the four layers, from Streamlit down to
-   Grace Blackwell.
+4. **📊 Simulation Capability** — how large a problem this machine holds, and the
+   exponential memory wall. *Not* a speed comparison — see BRIEF.md.
+
+### 🏗️ Architecture — its own page
+
+Full system diagram, the forced x86_64/aarch64 constraint, the four-layer stack,
+the request path for one optimization, deployment specifics on both hosts, the
+API surface, GPU claim/release policy, measured performance, and security posture.
+
+## GPU residency — claim before you demo
+
+The GB10's 128 GiB is **unified** memory shared between CPU and GPU, so the
+resident NIM (`nim-llama8b`, ~59 GiB) does not merely slow a run — it lowers the
+**qubit ceiling from 30 to ~27**, because the ceiling *is* free memory. Same
+discipline as the lab's `l4-fleet`:
+
+```bash
+./tools/gb10-gpu claim     # stop NIM → start gridops-qsim → 30-qubit ceiling
+./tools/gb10-gpu status    # what is resident, VRAM used, live ceiling
+./tools/gb10-gpu release   # stop gridops-qsim → restart NIM → nim/* restored
+```
+
+⚠ `claim` takes **`nim/*` off the LiteLLM gateway** until you `release`.
 
 ## Deploying the compute service
 

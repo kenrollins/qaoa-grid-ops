@@ -141,3 +141,68 @@ section[data-testid="stSidebar"] h2 {
 div[data-testid="stMetricValue"] { color: var(--text); }
 hr { border-color: var(--border); }
 code { color: var(--accent); background: var(--surface-alt); }
+
+/* ── Explainer: numbered concept steps ───────────────────────────────────── */
+.qstep {
+  display: flex; gap: .95rem; align-items: flex-start;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 4px; padding: .95rem 1.1rem; margin-bottom: .6rem;
+}
+.qstep .num {
+  flex: 0 0 2rem; height: 2rem; border-radius: 50%;
+  background: var(--surface-alt); border: 1px solid var(--accent);
+  color: var(--accent); font-family: var(--mono); font-size: .82rem;
+  font-weight: 650; display: flex; align-items: center; justify-content: center;
+}
+.qstep .body { flex: 1; }
+.qstep .t { font-size: .98rem; font-weight: 600; color: var(--text); margin-bottom: .25rem; }
+.qstep .d { color: var(--text-dim); font-size: .87rem; line-height: 1.65; }
+.qstep .d strong { color: var(--text); }
+.qstep .math {
+  font-family: var(--mono); font-size: .78rem; color: var(--accent);
+  background: #070b12; border: 1px solid var(--border); border-radius: 3px;
+  padding: .5rem .7rem; margin-top: .5rem; overflow-x: auto; white-space: pre;
+}
+
+/* ── Split: quantum vs classical responsibility ──────────────────────────── */
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
+@media (max-width: 900px) { .split { grid-template-columns: 1fr; } }
+.split .col { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: .9rem 1.05rem; }
+.split .col.q { border-top: 2px solid var(--island-b); }
+.split .col.c { border-top: 2px solid var(--accent); }
+.split .col h5 {
+  margin: 0 0 .55rem 0; font-family: var(--mono); font-size: .68rem;
+  letter-spacing: .1em; text-transform: uppercase; font-weight: 650;
+}
+.split .col.q h5 { color: var(--island-b); }
+.split .col.c h5 { color: var(--accent); }
+.split .col ul { margin: 0; padding-left: 1.05rem; }
+.split .col li { color: var(--text-dim); font-size: .85rem; line-height: 1.7; }
+
+/* ── Honesty / caveat callout ────────────────────────────────────────────── */
+.callout {
+  background: rgba(255,200,87,.06); border: 1px solid rgba(255,200,87,.32);
+  border-left: 3px solid var(--warn); border-radius: 4px;
+  padding: .9rem 1.1rem; margin: .7rem 0;
+}
+.callout .h {
+  font-family: var(--mono); font-size: .68rem; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--warn); font-weight: 650; margin-bottom: .35rem;
+}
+.callout p { color: var(--text-dim); font-size: .87rem; line-height: 1.65; margin: .3rem 0; }
+.callout strong { color: var(--text); }
+
+/* ── Architecture: flow + spec tables ────────────────────────────────────── */
+.flow {
+  font-family: var(--mono); font-size: .73rem; line-height: 1.55; color: var(--text-dim);
+  background: #070b12; border: 1px solid var(--border); border-radius: 4px;
+  padding: 1rem 1.15rem; overflow-x: auto; white-space: pre;
+}
+.spec { width: 100%; border-collapse: collapse; margin-top: .4rem; }
+.spec td { padding: .42rem .6rem; border-bottom: 1px solid var(--border); font-size: .85rem; }
+.spec td:first-child {
+  color: var(--text-dim); font-family: var(--mono); font-size: .74rem;
+  letter-spacing: .04em; width: 42%; vertical-align: top;
+}
+.spec td:last-child { color: var(--text); }
+.spec tr:last-child td { border-bottom: none; }

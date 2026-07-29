@@ -1,0 +1,99 @@
+#!/bin/bash
+# gb10-gpu — claim/release the Dell Pro Max GB10 for Grid Ops demos.
+#
+# Same residency discipline as `l4-fleet` (GPU-ORCHESTRATION.md): the GPU is not
+# a shared free-for-all. A demo CLAIMS it, gets the whole machine, and RELEASES
+# it so the default inference tenant comes back.
+#
+# What makes the GB10 different from the L4 fleet, and why this matters more:
+# its 128 GiB is UNIFIED memory shared between CPU and GPU. The resident NIM
+# (nim-llama8b) holds ~59 GiB, which does not merely slow a statevector run --
+# it lowers the QUBIT CEILING from 30 to ~27, because the ceiling IS free memory.
+# And an over-allocation does not just fail the run; on a unified pool it can
+# evict the neighbour's model. Claim/release is correctness here, not etiquette.
+#
+# Run from xr7620. Requires passwordless SSH to gb10 (already configured).
+set -euo pipefail
+
+HOST=gb10
+NIM_CONTAINER=nim-llama8b          # default tenant: nim/* on the LiteLLM gateway
+QSIM_START='~/gridops/services/gb10_qsim/start.sh'
+QSIM_URL=http://10.0.13.200:8600
+
+on_gb10() { ssh "$HOST" "$@"; }
+
+gpu_used_mib() {
+  # With no compute apps resident, nvidia-smi prints NOTHING -- `paste` then
+  # yields an empty string and `bc` reads no input, so a trailing `|| echo 0`
+  # never fires and the caller interpolates a blank. Default the sum instead.
+  local sum
+  sum=$(on_gb10 'nvidia-smi --query-compute-apps=used_memory --format=csv,noheader,nounits' \
+          2>/dev/null | paste -sd+ -)
+  [ -z "$sum" ] && { echo 0; return; }
+  echo "$sum" | bc 2>/dev/null || echo 0
+}
+
+qsim_up() { curl -sf -m 5 "$QSIM_URL/health" >/dev/null 2>&1; }
+
+nim_up() {
+  [ "$(on_gb10 "docker inspect -f '{{.State.Running}}' $NIM_CONTAINER 2>/dev/null || echo false")" = "true" ]
+}
+
+ceiling() {
+  curl -sf -m 5 "$QSIM_URL/health" 2>/dev/null \
+    | sed -n 's/.*"max_qubits":\([0-9]*\).*/\1/p' || true
+}
+
+case "${1:-status}" in
+  claim)
+    echo "claiming the GB10 for Grid Ops…"
+    if nim_up; then
+      echo "  stopping $NIM_CONTAINER (frees ~59 GiB of unified memory)"
+      echo "  NOTE: nim/* goes OFF the LiteLLM gateway until release"
+      on_gb10 "docker stop $NIM_CONTAINER" >/dev/null
+      sleep 5
+    else
+      echo "  $NIM_CONTAINER already stopped"
+    fi
+
+    echo "  starting gridops-qsim…"
+    on_gb10 "$QSIM_START" >/dev/null 2>&1 || true
+
+    for i in $(seq 1 20); do
+      if qsim_up; then
+        echo "CLAIMED — gridops-qsim serving, ceiling $(ceiling) qubits, $(gpu_used_mib) MiB in use"
+        exit 0
+      fi
+      sleep 3
+    done
+    echo "TIMEOUT — gridops-qsim did not come up; check: ssh $HOST 'tail -40 ~/gridops/qsim.log'" >&2
+    exit 1 ;;
+
+  release)
+    echo "releasing the GB10…"
+    on_gb10 'pkill -f "uvicorn server:app" || true' >/dev/null 2>&1 || true
+    sleep 2
+    echo "  restarting $NIM_CONTAINER (restores nim/* on the gateway)"
+    on_gb10 "docker start $NIM_CONTAINER" >/dev/null 2>&1 || {
+      echo "WARNING: could not start $NIM_CONTAINER — check: ssh $HOST 'docker ps -a'" >&2; }
+    sleep 5
+    echo "RELEASED — $(gpu_used_mib) MiB in use (inference tenant resident)" ;;
+
+  status)
+    used=$(gpu_used_mib)
+    if qsim_up; then
+      echo "CLAIMED — gridops-qsim serving, ceiling $(ceiling) qubits, ${used} MiB used"
+      # `|| true` matters: this is the branch's last statement, so a false
+      # nim_up would otherwise become the script's exit code and report a
+      # perfectly healthy CLAIMED state as a failure to any caller.
+      nim_up && echo "  ⚠ $NIM_CONTAINER ALSO running — they are sharing unified memory;" \
+                    "the qubit ceiling is reduced. Run 'gb10-gpu claim' for full capacity." || true
+    elif nim_up; then
+      echo "RELEASED — $NIM_CONTAINER resident (nim/* live on gateway), ${used} MiB used"
+      echo "  Grid Ops is NOT running. Run 'gb10-gpu claim' before a demo."
+    else
+      echo "IDLE — neither gridops-qsim nor $NIM_CONTAINER is running, ${used} MiB used"
+    fi ;;
+
+  *) echo "usage: gb10-gpu {claim|release|status}" >&2; exit 2 ;;
+esac

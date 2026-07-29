@@ -9,6 +9,12 @@ Read `BRIEF.md` for the design, the claim, and the alternatives rejected (with
 reasons and measurements); `PLAN.md` for build order — **M0 is done and demoable**;
 `README.md` to run it.
 
+## Layout
+`app.py` owns page config, the shared sidebar, and the backend probe, then
+dispatches via `st.navigation` to two pages in `src/ui/views/`:
+**Command Center** (`command_center.py` — 4 tabs, incl. `quantum.py`, the
+audience explainer) and **Architecture** (`architecture.py`).
+
 This app is a lab tenant-in-waiting — it is **not yet registered**. Platform
 contract: `/data/code/dmz/ONBOARDING.md` — follow it, don't copy it. See PLAN.md M4.
 
@@ -31,8 +37,9 @@ contract: `/data/code/dmz/ONBOARDING.md` — follow it, don't copy it. See PLAN.
    holds ~59 GB when running, dropping the ceiling from 30 qubits to ~27. An
    over-allocation here does not just fail the request — it can evict a
    neighbour's model. `MEMORY_SAFETY` in the service guards this; don't raise it
-   casually. ⚠ **`nim-llama8b` is currently STOPPED** — restart with
-   `ssh gb10 'docker start nim-llama8b'`.
+   casually. Use `tools/gb10-gpu {claim|release|status}` — same residency
+   discipline as the lab's `l4-fleet`. ⚠ `claim` takes **`nim/*` off the LiteLLM
+   gateway** until `release`.
 3. **Never report one "approximation ratio."** ⟨H⟩ averages the whole
    measurement distribution (~0.25); the plan actually returned is the **exact
    optimum** (1.000). Conflating them made the algorithm look broken during

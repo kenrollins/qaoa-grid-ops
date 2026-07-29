@@ -44,6 +44,9 @@ The physics is right; the theater is not yet.
 
 ## M2 — Credibility surface
 
+- [x] ⚛️ Quantum explainer tab — audience-facing, states plainly this is simulation not a QPU
+- [x] Architecture promoted to its own page (system diagram, request path, deployment, security)
+- [x] `tools/gb10-gpu` claim/release/status — GB10 residency, mirrors `l4-fleet`
 - [ ] Wire `POST /qaoa/verify` into Tab 3 as a **button**. The 8e-17 equivalence
       result is a strong moment and it is currently only in the docs.
 - [ ] Show the exact-optimum comparison as a first-class panel, not a text card.
