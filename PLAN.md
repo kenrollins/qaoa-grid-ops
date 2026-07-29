@@ -33,13 +33,11 @@ The physics is right; the theater is not yet.
       Stream it — the GB10 service already accepts a `progress` callback; add
       SSE or chunked streaming and animate. *This is the single highest-value
       visual change.*
-- [ ] **Contingency framing.** Right now the grid is static and gets partitioned.
-      Add the actual scenario: a **line drop / cyber event** that triggers the
-      optimization. One button: "⚡ Simulate line fault on L14–L07" → the line
-      goes red → *then* islanding runs. That is the mission narrative in the
-      spec's Section 1, and it is currently missing.
-- [ ] **Before/after MW accounting.** Load served before vs after islanding, and
-      MW shed. Grid operators think in those terms, not in Hamiltonian energy.
+- [x] **Contingency framing.** Line-fault selector (none / most-critical /
+      choose), faulted lines drawn distinctly from deliberately opened breakers,
+      contingency banner above the result.
+- [x] **MW accounting.** Load served / shed, per island, plus a spectral-bisection
+      baseline to compare against. Operators judge plans in MW, not Hamiltonians.
 - [ ] Node hover → substation detail card.
 
 ## M2 — Credibility surface
@@ -47,8 +45,7 @@ The physics is right; the theater is not yet.
 - [x] ⚛️ Quantum explainer tab — audience-facing, states plainly this is simulation not a QPU
 - [x] Architecture promoted to its own page (system diagram, request path, deployment, security)
 - [x] `tools/gb10-gpu` claim/release/status — GB10 residency, mirrors `l4-fleet`
-- [ ] Wire `POST /qaoa/verify` into Tab 3 as a **button**. The 8e-17 equivalence
-      result is a strong moment and it is currently only in the docs.
+- [x] `POST /qaoa/verify` wired into Tab 3 as a live button (measures ~3.4e-17).
 - [ ] Show the exact-optimum comparison as a first-class panel, not a text card.
       Brute force is affordable to ~20 qubits; make optimality *visible*.
 - [ ] Surface `expectation_ratio` vs `solution_ratio` vs `concentration` as three
@@ -56,6 +53,18 @@ The physics is right; the theater is not yet.
       "approximation ratio" — that ambiguity is what made the algorithm look
       broken during bring-up.
 - [ ] Persist runs to `data/` so a demo can be replayed without a live GB10.
+
+## M2.5 — Objective alignment ← **the top algorithm task now**
+
+QAOA reliably finds the true optimum of the stated objective, and still loses to
+spectral bisection on MW served in ~2 of 12 scenarios. The objective is a proxy
+and it is misaligned in a specific, fixable way:
+
+- [ ] **The balance term is symmetric.** `(Σpᵢsᵢ)²` penalises surplus generation
+      as hard as a deficit, but only deficits shed load. Explore a one-sided
+      penalty, or a per-island deficit term, that stays quadratic in the spins.
+- [ ] Score directly on MW served, not on the Hamiltonian, when comparing runs.
+- [ ] Sweep weights per grid size — the best weights may not be size-invariant.
 
 ## M3 — Performance headroom (real, and quantified)
 

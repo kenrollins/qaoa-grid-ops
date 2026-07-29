@@ -44,11 +44,16 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from typing import Iterable
 
 import networkx as nx
 import numpy as np
 
 from src.config.settings import GridSpec, ObjectiveWeights
+
+# Total generation as a multiple of total load. Real systems carry a modest
+# operating reserve, not a 3x surplus.
+RESERVE_MARGIN = 1.08
 
 
 @dataclass(frozen=True)
@@ -103,11 +108,23 @@ def build_grid(spec: GridSpec) -> nx.Graph:
     n_gen = max(1, int(round(spec.generator_fraction * n)))
     gen_nodes = set(int(x) for x in rng.choice(n, size=n_gen, replace=False))
 
+    # Generation sites are lumpy; load buses are comparatively uniform.
+    raw_gen = {i: (float(rng.uniform(60, 240)) if i in gen_nodes else 0.0) for i in range(n)}
+    loads = {i: float(rng.uniform(8, 45)) for i in range(n)}
+
+    # Scale generation to sit just above total load. Without this the synthetic
+    # grid carries ~3x more generation than demand, every possible fragment is
+    # trivially self-sufficient, and islanding can NEVER shed load — which makes
+    # the balance term of the objective decorative and the whole contingency
+    # story unfalsifiable. Real systems are dispatched close to demand.
+    total_load = sum(loads.values())
+    total_raw = sum(raw_gen.values()) or 1.0
+    scale = (total_load * RESERVE_MARGIN) / total_raw
+
     for i in range(n):
         is_gen = i in gen_nodes
-        # Generation sites are lumpy; load buses are comparatively uniform.
-        gen = float(rng.uniform(60, 240)) if is_gen else 0.0
-        load = float(rng.uniform(8, 45))
+        gen = raw_gen[i] * scale
+        load = loads[i]
         g.nodes[i].update(
             name=f"{'GEN' if is_gen else 'SUB'}-{i:02d}",
             kind="generation" if is_gen else "load",
@@ -139,12 +156,132 @@ def normalized_injections(g: nx.Graph) -> np.ndarray:
     return p / denom
 
 
+# ── Contingency: tripping lines ──────────────────────────────────────────────
+
+def apply_fault(g: nx.Graph, edges: Iterable[tuple[int, int]]) -> nx.Graph:
+    """Mark lines as tripped by a fault (line drop, cyber event, storm).
+
+    A faulted line is NOT removed from the graph — the operator still needs to
+    see it on the one-line diagram, drawn as failed. It is instead marked
+    `faulted=True`, and every downstream calculation treats it as carrying no
+    power: it contributes nothing to the cut objective, it cannot hold an island
+    together for contiguity purposes, and severing it costs nothing because it
+    is already out.
+
+    Returns a copy — the caller's pristine grid stays intact so the same
+    topology can be re-faulted differently without rebuilding it.
+    """
+    h = g.copy()
+    for u, v in h.edges():
+        h.edges[u, v].setdefault("faulted", False)
+    for u, v in edges:
+        if h.has_edge(u, v):
+            h.edges[u, v]["faulted"] = True
+    return h
+
+
+def live_edges(g: nx.Graph) -> list[tuple[int, int]]:
+    """Edges still carrying power — everything not tripped."""
+    return [(int(u), int(v)) for u, v in g.edges() if not g.edges[u, v].get("faulted")]
+
+
+def faulted_edges(g: nx.Graph) -> list[tuple[int, int, float]]:
+    return [(int(u), int(v), float(g.edges[u, v]["flow_mw"]))
+            for u, v in g.edges() if g.edges[u, v].get("faulted")]
+
+
+def most_critical_line(g: nx.Graph) -> tuple[int, int] | None:
+    """The line whose loss hurts most — highest flow among those that would
+    disconnect the grid, else simply the highest flow still in service.
+
+    A fault that merely removes a redundant tie is not a contingency worth
+    demonstrating; one that splits the network is.
+    """
+    live = live_edges(g)
+    if not live:
+        return None
+    h = nx.Graph(live)
+    h.add_nodes_from(g.nodes())
+
+    def flow(e: tuple[int, int]) -> float:
+        return float(g.edges[e[0], e[1]]["flow_mw"])
+
+    splitting = []
+    for u, v in live:
+        h.remove_edge(u, v)
+        if not nx.is_connected(h):
+            splitting.append((u, v))
+        h.add_edge(u, v)
+    pool = splitting or live
+    return max(pool, key=flow)
+
+
+# ── Load accounting — how operators actually score a plan ────────────────────
+
+@dataclass(frozen=True)
+class LoadReport:
+    """MW served vs shed. The number a grid operator judges the plan by."""
+
+    total_load_mw: float
+    total_generation_mw: float
+    served_mw: float
+    shed_mw: float
+    per_island: list[dict]
+
+    @property
+    def served_fraction(self) -> float:
+        return self.served_mw / self.total_load_mw if self.total_load_mw else 1.0
+
+
+def load_report(g: nx.Graph, islands: list[list[int]]) -> LoadReport:
+    """Score a partition by load served.
+
+    Each island can serve at most its own generation — that is the entire point
+    of islanding. Load beyond an island's generation is shed. An island with no
+    generation sheds everything in it.
+    """
+    total_load = sum(g.nodes[i]["load_mw"] for i in g.nodes())
+    total_gen = sum(g.nodes[i]["generation_mw"] for i in g.nodes())
+
+    served, per = 0.0, []
+    for idx, nodes in enumerate(islands):
+        if not nodes:
+            continue
+        gen = sum(g.nodes[i]["generation_mw"] for i in nodes)
+        load = sum(g.nodes[i]["load_mw"] for i in nodes)
+        s = min(gen, load)
+        served += s
+        per.append({
+            "island": chr(ord("A") + idx),
+            "nodes": len(nodes),
+            "generation_mw": round(gen, 1),
+            "load_mw": round(load, 1),
+            "served_mw": round(s, 1),
+            "shed_mw": round(load - s, 1),
+        })
+
+    return LoadReport(
+        total_load_mw=round(total_load, 1),
+        total_generation_mw=round(total_gen, 1),
+        served_mw=round(served, 1),
+        shed_mw=round(total_load - served, 1),
+        per_island=per,
+    )
+
+
 def build_ising(g: nx.Graph, weights: ObjectiveWeights) -> IsingModel:
-    """Assemble the islanding Hamiltonian described in this module's docstring."""
+    """Assemble the islanding Hamiltonian described in this module's docstring.
+
+    Faulted lines are excluded from the flow term: a tripped line carries no
+    power, so cutting it costs nothing and the optimizer must not be paid to
+    avoid it.
+    """
     n = g.number_of_nodes()
     p = normalized_injections(g)
 
-    flows = np.array([g.edges[u, v]["flow_mw"] for u, v in g.edges()], dtype=float)
+    live = live_edges(g)
+    flows = np.array([g.edges[u, v]["flow_mw"] for u, v in live], dtype=float) \
+        if live else np.array([1.0])
     flow_denom = float(flows.max()) or 1.0
 
     couplings: dict[tuple[int, int], float] = {}
@@ -154,20 +291,31 @@ def build_ising(g: nx.Graph, weights: ObjectiveWeights) -> IsingModel:
             i, j = j, i
         couplings[(i, j)] = couplings.get((i, j), 0.0) + value
 
-    # 1. Flow severed by the cut.
-    for u, v in g.edges():
+    # 1. Flow severed by the cut — live lines only.
+    for u, v in live:
         w = g.edges[u, v]["flow_mw"] / flow_denom
         add(int(u), int(v), -weights.flow * w / 2.0)
 
     # 2. + 3. Balance and size — both dense, both all-to-all.
+    #
+    # Divided by n. This is not cosmetic: the flow term touches only |E| ≈ n
+    # edges, while these touch all n(n-1)/2 pairs. Left unnormalised the dense
+    # terms outweigh flow by ~n, and the optimiser buys island balance at ANY
+    # cut cost — measured at n=14, it severed 144.7 MW against a 57.2 MW
+    # spectral bisection and returned an infeasible plan, while faithfully
+    # finding the true ground state of that lopsided objective. The weights in
+    # ObjectiveWeights are only interpretable once the three terms are on
+    # comparable footing.
+    dense_scale = 1.0 / max(1, n)
     for i in range(n):
         for j in range(i + 1, n):
-            add(i, j, 2.0 * weights.balance * p[i] * p[j] + 2.0 * weights.size)
+            add(i, j, dense_scale * (2.0 * weights.balance * p[i] * p[j]
+                                     + 2.0 * weights.size))
 
     offset = (
-        weights.flow * float((flows / flow_denom).sum()) / 2.0
-        + weights.balance * float((p ** 2).sum())
-        + weights.size * n
+        (weights.flow * float((flows / flow_denom).sum()) / 2.0 if live else 0.0)
+        + dense_scale * weights.balance * float((p ** 2).sum())
+        + dense_scale * weights.size * n
     )
 
     # Drop couplings that rounded to nothing — they cost a two-qubit gate each.
@@ -209,10 +357,13 @@ def evaluate_partition(g: nx.Graph, model: IsingModel, bitstring: str) -> Partit
     bits += [0] * (n - len(bits))
     spins = np.array([1 - 2 * b for b in bits], dtype=float)
 
+    # A faulted line is already out: cutting it interrupts nothing further, so
+    # counting it as "severed by the plan" would inflate the headline MW figure
+    # with damage the fault already did.
     severed = [
         (int(u), int(v), float(g.edges[u, v]["flow_mw"]))
         for u, v in g.edges()
-        if bits[u] != bits[v]
+        if bits[u] != bits[v] and not g.edges[u, v].get("faulted")
     ]
     interrupted = sum(f for _, _, f in severed)
 
@@ -234,8 +385,13 @@ def evaluate_partition(g: nx.Graph, model: IsingModel, bitstring: str) -> Partit
             if not any(g.nodes[i]["kind"] == "generation" for i in nodes):
                 feasible = False
                 notes.append(f"Island {label} contains no generation — it cannot be energised.")
+        # Contiguity must be judged over LIVE lines only — a tripped line cannot
+        # energise anything, so an island held together only by a faulted
+        # conductor is not actually connected.
+        live_graph = nx.Graph(live_edges(g))
+        live_graph.add_nodes_from(g.nodes())
         for label, nodes in (("A", island_a), ("B", island_b)):
-            sub = g.subgraph(nodes)
+            sub = live_graph.subgraph(nodes)
             if len(nodes) > 1 and not nx.is_connected(sub):
                 feasible = False
                 notes.append(f"Island {label} is not electrically contiguous.")
@@ -253,6 +409,43 @@ def evaluate_partition(g: nx.Graph, model: IsingModel, bitstring: str) -> Partit
         feasible=feasible,
         notes=notes,
     )
+
+
+def spectral_baseline(g: nx.Graph) -> str:
+    """Classical spectral bisection — the method an engineer reaches for first.
+
+    Partitions on the sign of the Fiedler vector (second-smallest eigenvector of
+    the flow-weighted Laplacian over live lines). This is a genuinely good
+    minimum-cut heuristic, and including it keeps the demo honest: QAOA should be
+    compared against competent classical practice, not against nothing.
+
+    Note what it optimises — cut weight alone. It has no notion of generation
+    adequacy, which is exactly where the QUBO's balance term earns its place.
+
+    Returned little-endian to match every other bitstring in this project.
+    """
+    n = g.number_of_nodes()
+    live = live_edges(g)
+    if n < 2 or not live:
+        return "0" * n
+
+    lap = np.zeros((n, n), dtype=float)
+    for u, v in live:
+        w = float(g.edges[u, v]["flow_mw"])
+        lap[u, u] += w
+        lap[v, v] += w
+        lap[u, v] -= w
+        lap[v, u] -= w
+
+    vals, vecs = np.linalg.eigh(lap)
+    order = np.argsort(vals)
+    fiedler = vecs[:, order[1]] if n > 1 else vecs[:, 0]
+
+    bits = [1 if fiedler[i] > 0 else 0 for i in range(n)]
+    if all(b == bits[0] for b in bits):  # degenerate — split at the median
+        med = float(np.median(fiedler))
+        bits = [1 if fiedler[i] > med else 0 for i in range(n)]
+    return "".join(str(b) for b in reversed(bits))
 
 
 def brute_force_ground_state(model: IsingModel) -> tuple[str, float]:

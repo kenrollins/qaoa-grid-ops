@@ -80,11 +80,16 @@ def topology_figure(g: nx.Graph, report=None) -> go.Figure:
     assign = report.assignment if report is not None else None
     severed = {tuple(sorted((u, v))) for u, v, _ in (report.severed_lines if report else [])}
 
-    intact_x, intact_y, cut_x, cut_y = [], [], [], []
+    # Three visually distinct line states. A faulted line and a deliberately
+    # opened breaker mean opposite things to an operator — one is damage, the
+    # other is the plan — so they must never share a style.
+    intact_x, intact_y, cut_x, cut_y, fault_x, fault_y = [], [], [], [], [], []
     for u, v in g.edges():
         xs = [g.nodes[u]["x"], g.nodes[v]["x"], None]
         ys = [g.nodes[u]["y"], g.nodes[v]["y"], None]
-        if tuple(sorted((u, v))) in severed:
+        if g.edges[u, v].get("faulted"):
+            fault_x += xs; fault_y += ys
+        elif tuple(sorted((u, v))) in severed:
             cut_x += xs; cut_y += ys
         else:
             intact_x += xs; intact_y += ys
@@ -96,8 +101,13 @@ def topology_figure(g: nx.Graph, report=None) -> go.Figure:
     ))
     if cut_x:
         fig.add_trace(go.Scatter(
-            x=cut_x, y=cut_y, mode="lines", name="Severed (islanding cut)",
-            line=dict(color=COLORS["crit"], width=2.4, dash="dot"), hoverinfo="skip",
+            x=cut_x, y=cut_y, mode="lines", name="Opened breaker (islanding cut)",
+            line=dict(color=COLORS["warn"], width=2.4, dash="dot"), hoverinfo="skip",
+        ))
+    if fault_x:
+        fig.add_trace(go.Scatter(
+            x=fault_x, y=fault_y, mode="lines", name="⚡ FAULTED LINE",
+            line=dict(color=COLORS["crit"], width=4.0), hoverinfo="skip",
         ))
 
     xs = [g.nodes[i]["x"] for i in g.nodes()]
@@ -309,6 +319,26 @@ def partition_report_json(run) -> str:
                 "nodes": [g.nodes[i]["name"] for i in r.island_b],
                 "net_mw": r.imbalance_b_mw,
             },
+        },
+        "contingency": {
+            "faulted_lines": [
+                {"from": g.nodes[u]["name"], "to": g.nodes[v]["name"], "flow_mw": f}
+                for u, v, f in run.fault
+            ],
+        },
+        "load_accounting": {
+            "total_demand_mw": run.load_before.total_load_mw if run.load_before else None,
+            "served_mw": run.load_after_plan.served_mw if run.load_after_plan else None,
+            "shed_mw": run.mw_shed_by_plan,
+            "per_island": run.load_after_plan.per_island if run.load_after_plan else [],
+        },
+        "classical_baseline": {
+            "method": "spectral bisection (Fiedler vector, flow-weighted Laplacian)",
+            "served_mw": run.baseline_load.served_mw if run.baseline_load else None,
+            "shed_mw": run.baseline_load.shed_mw if run.baseline_load else None,
+            "interrupted_mw": run.baseline_report.interrupted_mw if run.baseline_report else None,
+            "feasible": run.baseline_report.feasible if run.baseline_report else None,
+            "qaoa_advantage_mw": run.mw_better_than_baseline,
         },
         "verification": {
             "exact_optimum_computed": run.exact is not None,

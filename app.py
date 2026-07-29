@@ -16,6 +16,7 @@ from src.config.settings import (
     GridSpec, LAYERS_DEFAULT, LAYERS_MAX, LAYERS_MIN, ObjectiveWeights,
     QUBIT_DEFAULT, QUBIT_MAX, QUBIT_MIN, STEPS_DEFAULT, STEPS_MAX, STEPS_MIN,
 )
+from src.simulation.grid_model import build_grid, most_critical_line
 from src.simulation.qaoa_engine import run_islanding_optimization, select_backend
 from src.ui import components as ui
 from src.ui.views import architecture as architecture_view
@@ -46,10 +47,17 @@ with st.sidebar:
                       help="Iterations of the classical outer loop over (γ, β).")
 
     st.markdown("## Objective Weights")
-    w_flow = st.slider("Minimize interrupted flow", 0.0, 2.0, 1.0, 0.05)
-    w_bal = st.slider("Island power balance", 0.0, 2.0, 1.0, 0.05)
-    w_size = st.slider("Island size balance", 0.0, 1.0, 0.35, 0.05,
-                       help="Prevents the degenerate 'one island' answer.")
+    w_flow = st.slider("Minimize interrupted flow", 0.0, 2.0, 0.5, 0.05)
+    w_bal = st.slider("Island power balance", 0.0, 2.0, 2.0, 0.05)
+    w_size = st.slider("Island size balance", 0.0, 1.0, 0.2, 0.05,
+                       help="Prevents the degenerate 'one island' answer. "
+                            "Lowering this wins more load but starts returning "
+                            "electrically infeasible plans.")
+
+    st.markdown("## Contingency")
+    fault_mode = st.radio(
+        "Line fault", ["None — intact grid", "Trip the most critical line", "Choose a line"],
+        index=1, help="The disturbance the islanding plan is responding to.")
 
     st.markdown("## Compute")
     pref = st.selectbox("Backend", ["gb10", "local", "auto"], index=0,
@@ -60,6 +68,23 @@ with st.sidebar:
 
 spec = GridSpec(n_nodes=n_nodes, seed=int(seed),
                 weights=ObjectiveWeights(flow=w_flow, balance=w_bal, size=w_size))
+
+# Resolve the fault against THIS grid. Done here, above the navigation, so the
+# selector can list real line names and both pages see the same contingency.
+_grid = build_grid(spec)
+fault: list[tuple[int, int]] = []
+if fault_mode == "Trip the most critical line":
+    crit = most_critical_line(_grid)
+    if crit:
+        fault = [crit]
+elif fault_mode == "Choose a line":
+    opts = sorted(_grid.edges(), key=lambda e: -_grid.edges[e]["flow_mw"])
+    with st.sidebar:
+        pick = st.selectbox(
+            "Line to trip", opts,
+            format_func=lambda e: (f"{_grid.nodes[e[0]]['name']} ↔ {_grid.nodes[e[1]]['name']}"
+                                   f"  ({_grid.edges[e]['flow_mw']:.0f} MW)"))
+    fault = [tuple(pick)]
 
 backend = _backend(pref)
 state = "live" if backend["available"] else "down"
@@ -76,12 +101,13 @@ if not backend["available"]:
 if run_clicked:
     with st.spinner(f"Optimizing {n_nodes}-substation islanding on {backend['label']}…"):
         st.session_state["run"] = run_islanding_optimization(
-            spec, layers=layers, steps=steps, backend_preference=pref)
+            spec, layers=layers, steps=steps, backend_preference=pref,
+            graph=_grid, fault=fault)
 
 
 # ── Pages ────────────────────────────────────────────────────────────────────
 def _command_center() -> None:
-    command_center_view.render(spec, backend, layers, pref)
+    command_center_view.render(spec, backend, layers, pref, grid=_grid, fault=fault)
 
 
 def _architecture() -> None:

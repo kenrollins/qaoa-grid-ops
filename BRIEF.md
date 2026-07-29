@@ -176,11 +176,51 @@ Recorded because they will otherwise be reintroduced:
    (400 MB), **30 GB at 30 qubits**. Fixed: tiled.
 4. **The phase multiply allocated two full-width temporaries** — 34 GB of scratch
    at 30 qubits on top of a 17 GB statevector. Fixed: tiled.
-5. **The service died on SSH disconnect.** `nohup … &` inside `ssh host 'cmd'` is
+5. **Generation was ~3x load.** The synthetic grid dispatched far more
+   generation than demand, so every possible fragment was trivially
+   self-sufficient, islanding could never shed load, and the balance term of the
+   objective was decorative — the contingency story was unfalsifiable. Fixed:
+   generation scaled to a 1.08 reserve margin, as real systems are dispatched.
+6. **The objective was scaled wrong by a factor of ~n.** The flow term touches
+   |E| ≈ n edges; balance and size touch all n(n−1)/2 pairs. Unnormalised, the
+   dense terms outweighed flow by ~n and the optimizer bought island balance at
+   any cut cost — at n=14 it severed 144.7 MW against a 57.2 MW spectral
+   bisection and returned an **infeasible** plan, while faithfully finding that
+   objective's true ground state. Fixed: dense terms divided by n. The weights
+   are only interpretable once the three terms are on comparable footing.
+7. **The service died on SSH disconnect.** `nohup … &` inside `ssh host 'cmd'` is
    not enough; the process group is signalled on close. Fixed: `setsid` in
    `start.sh`.
 
 ---
+
+## The classical baseline, and an honest loss
+
+QAOA is compared against **spectral bisection** (Fiedler vector of the
+flow-weighted Laplacian) — competent classical practice, not a straw man. Both
+partition the same faulted grid, so any difference is attributable to the
+objective rather than to hardware.
+
+Default weights were chosen by sweep over 12 scenarios (4 seeds x 3 sizes),
+scored on MW served:
+
+| weights (flow / balance / size) | W/T/L | net MW | infeasible |
+|---|---|---|---|
+| 1.0 / 1.0 / 0.35 | 5/2/5 | +214 | 0/12 |
+| **0.5 / 2.0 / 0.20** | **7/3/2** | **+419** | **0/12** ← chosen |
+| 1.0 / 3.0 / 0.15 | 7/4/1 | +436 | 1/12 |
+| 1.0 / 4.0 / 0.10 | 8/3/1 | +488 | 6/12 |
+
+Pushing balance higher wins more load but returns electrically non-viable plans.
+**An infeasible plan is not a better plan.**
+
+QAOA still loses 2 of 12. When it does, it has returned the *true optimum of the
+stated objective* (brute-force verified) while serving less load — which is a
+statement about the objective, not the solver: the balance term `(Σpᵢsᵢ)²` is
+symmetric, penalising an island with surplus generation exactly as hard as one
+with a deficit, though only deficits shed load. **The UI says so on screen when
+it happens.** Objective alignment is the open algorithm problem, and surfacing it
+is more valuable to this audience than hiding it.
 
 ## Lab integration status
 

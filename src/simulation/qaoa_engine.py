@@ -39,10 +39,16 @@ from src.config.settings import (
 )
 from src.simulation.grid_model import (
     IsingModel,
+    LoadReport,
     PartitionReport,
+    apply_fault,
     build_grid,
     build_ising,
     evaluate_partition,
+    faulted_edges,
+    live_edges,
+    load_report,
+    spectral_baseline,
 )
 from src.simulation import qaoa_core
 
@@ -171,6 +177,32 @@ class IslandingRun:
     wall_seconds: float
     exact: dict | None = None
     warnings: list[str] = field(default_factory=list)
+    # Contingency context — the three states an operator compares.
+    fault: list[tuple[int, int, float]] = field(default_factory=list)
+    load_before: LoadReport | None = None   # intact grid, one connected system
+    load_after_fault: LoadReport | None = None   # post-fault, no islanding action
+    load_after_plan: LoadReport | None = None    # after the QAOA islanding plan
+
+    # Classical spectral bisection on the same post-fault grid.
+    baseline_report: PartitionReport | None = None
+    baseline_load: LoadReport | None = None
+
+    @property
+    def mw_shed_by_plan(self) -> float:
+        """Load shed as the COST of separating. Islanding is never free."""
+        return self.load_after_plan.shed_mw if self.load_after_plan else 0.0
+
+    @property
+    def mw_better_than_baseline(self) -> float:
+        """MW of load QAOA keeps on that classical spectral bisection does not.
+
+        The operator's bottom line, and the fair comparison: both methods are
+        separating the same faulted grid, so the difference is attributable to
+        the objective, not to the hardware. Positive means QAOA served more.
+        """
+        if not (self.baseline_load and self.load_after_plan):
+            return 0.0
+        return round(self.load_after_plan.served_mw - self.baseline_load.served_mw, 1)
 
     @property
     def energy_history(self) -> list[float]:
@@ -244,10 +276,16 @@ def run_islanding_optimization(
     compute_exact: bool = True,
     exact_limit: int = 16,
     graph: nx.Graph | None = None,
+    fault: list[tuple[int, int]] | None = None,
 ) -> IslandingRun:
-    """Build the grid, solve the islanding QUBO with QAOA, evaluate the answer."""
+    """Build the grid, solve the islanding QUBO with QAOA, evaluate the answer.
+
+    `fault` trips the given lines before solving — the contingency the islanding
+    plan is responding to.
+    """
     t0 = time.perf_counter()
-    g = graph if graph is not None else build_grid(spec)
+    base = graph if graph is not None else build_grid(spec)
+    g = apply_fault(base, fault or [])
     model = build_ising(g, spec.weights)
     backend = select_backend(backend_preference)
     warnings: list[str] = []
@@ -295,6 +333,17 @@ def run_islanding_optimization(
             "report": evaluate_partition(g, model, bits),
         }
 
+    # The three states an operator compares. "After fault, no action" is the
+    # honest baseline: the network fragments along whatever live paths remain,
+    # and each fragment can only serve its own generation. Without this
+    # comparison the plan has nothing to be better THAN.
+    live_graph = nx.Graph(live_edges(g))
+    live_graph.add_nodes_from(g.nodes())
+    fragments = [sorted(c) for c in nx.connected_components(live_graph)]
+
+    base_bits = spectral_baseline(g)
+    base_report = evaluate_partition(g, model, base_bits)
+
     return IslandingRun(
         graph=g,
         model=model,
@@ -304,6 +353,12 @@ def run_islanding_optimization(
         wall_seconds=time.perf_counter() - t0,
         exact=exact,
         warnings=warnings,
+        fault=faulted_edges(g),
+        load_before=load_report(base, [list(base.nodes())]),
+        load_after_fault=load_report(g, fragments),
+        load_after_plan=load_report(g, [report.island_a, report.island_b]),
+        baseline_report=base_report,
+        baseline_load=load_report(g, [base_report.island_a, base_report.island_b]),
     )
 
 
@@ -385,3 +440,41 @@ def scaling_probe(
                 row.update(status=f"failed: {type(exc).__name__}", seconds=None)
         rows.append(row)
     return rows
+
+
+def verify_fast_path(model: IsingModel, layers: int = 2,
+                     backend_preference: str = DEFAULT_BACKEND) -> dict:
+    """Prove on the live backend that the diagonal fast path == gate-by-gate RZZ.
+
+    The demo's speed rests on applying exp(-iγH_C) as one phase multiply instead
+    of thousands of RZZ gates. That is an optimisation, not an approximation --
+    and this makes it checkable on demand rather than asserted in a footnote.
+
+    Capped at 18 qubits: the gate path is O(p·n²) full passes over the
+    statevector, so an unbounded check would hang the UI on a big grid.
+    """
+    n = min(model.n_qubits, 18)
+    couplings = [[i, j, v] for (i, j), v in model.couplings.items() if i < n and j < n]
+    backend = select_backend(backend_preference)
+    payload = {"n_qubits": n, "couplings": couplings,
+               "offset": model.offset, "layers": int(min(layers, 4))}
+
+    if backend.name == "gb10" and backend.available:
+        try:
+            out = _http_json(f"{GB10_QSIM_URL}/qaoa/verify", payload,
+                             timeout=GB10_REQUEST_TIMEOUT)
+            out["backend"] = "gb10"
+            out["device"] = backend.device
+            return out
+        except Exception as exc:
+            return {"error": f"{type(exc).__name__}: {exc}", "backend": "gb10"}
+
+    xp: Any = np
+    if backend.name == "local-gpu":
+        import cupy as cp
+        xp = cp
+    out = qaoa_core.verify_equivalence(
+        n, [(i, j, v) for i, j, v in couplings], model.offset, layers=payload["layers"], xp=xp)
+    out["backend"] = backend.name
+    out["device"] = backend.device
+    return out

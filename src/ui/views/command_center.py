@@ -8,14 +8,16 @@ from __future__ import annotations
 
 import streamlit as st
 
-from src.simulation.grid_model import build_grid
-from src.simulation.qaoa_engine import scaling_probe
+from src.simulation.grid_model import apply_fault, build_grid
+from src.simulation.qaoa_engine import scaling_probe, verify_fast_path
 from src.ui import components as ui
 from src.ui.views import quantum as quantum_view
 
 
-def render(spec, backend: dict, layers: int, pref: str) -> None:
+def render(spec, backend: dict, layers: int, pref: str,
+           grid=None, fault: list | None = None) -> None:
     run = st.session_state.get("run")
+    fault = fault or []
     free_gb = backend.get("free_memory_bytes", 0) / 2**30
     total_gb = backend.get("total_memory_bytes", 0) / 2**30
 
@@ -29,13 +31,26 @@ def render(spec, backend: dict, layers: int, pref: str) -> None:
     # ── Tab 1 — the result ───────────────────────────────────────────────────
     with tab1:
         if run is None:
-            st.info("Set the contingency parameters and press "
-                    "**🚀 Run Hybrid Optimization** in the sidebar.")
-            st.plotly_chart(ui.topology_figure(build_grid(spec)), width="stretch")
+            g0 = apply_fault(grid if grid is not None else build_grid(spec), fault)
+            if fault:
+                lines = ", ".join(f"{g0.nodes[u]['name']} ↔ {g0.nodes[v]['name']} "
+                                  f"({g0.edges[u, v]['flow_mw']:.0f} MW)" for u, v in fault)
+                st.error(f"⚡ **CONTINGENCY — line fault:** {lines}. "
+                         "Press **🚀 Run Hybrid Optimization** to compute an islanding response.")
+            else:
+                st.info("Grid intact. Select a contingency and press "
+                        "**🚀 Run Hybrid Optimization** in the sidebar.")
+            st.plotly_chart(ui.topology_figure(g0), width="stretch")
         else:
             r, res = run.report, run.result
             for w in run.warnings:
                 st.warning(w)
+
+            if run.fault:
+                lines = ", ".join(f"{run.graph.nodes[u]['name']} ↔ {run.graph.nodes[v]['name']} "
+                                  f"({f:.0f} MW)" for u, v, f in run.fault)
+                st.error(f"⚡ **CONTINGENCY — line fault:** {lines} · "
+                         f"islanding response computed in {res.get('seconds', 0):.2f} s")
 
             c = st.columns(4)
             c[0].markdown(ui.metric_html(
@@ -55,6 +70,42 @@ def render(spec, backend: dict, layers: int, pref: str) -> None:
                 kind="ok" if r.feasible else "crit"), unsafe_allow_html=True)
 
             st.plotly_chart(ui.topology_figure(run.graph, r), width="stretch")
+
+            # ── Load accounting: what the plan costs, and how it compares ────
+            if run.load_after_plan and run.baseline_load:
+                lp, lb, l0 = run.load_after_plan, run.baseline_load, run.load_before
+                delta = run.mw_better_than_baseline
+                cols = st.columns(3)
+                cols[0].markdown(ui.metric_html(
+                    "Load served — QAOA plan", f"{lp.served_mw:,.0f}", "MW",
+                    f"{lp.served_fraction * 100:.1f}% of {l0.total_load_mw:,.0f} MW demand · "
+                    f"{lp.shed_mw:,.0f} MW shed",
+                    kind="ok" if lp.shed_mw <= lb.shed_mw else "warn"), unsafe_allow_html=True)
+                cols[1].markdown(ui.metric_html(
+                    "Load served — classical baseline", f"{lb.served_mw:,.0f}", "MW",
+                    f"spectral bisection · {lb.shed_mw:,.0f} MW shed"
+                    + ("" if run.baseline_report.feasible else " · INFEASIBLE")),
+                    unsafe_allow_html=True)
+                cols[2].markdown(ui.metric_html(
+                    "QAOA vs classical", f"{delta:+,.0f}", "MW",
+                    "load kept on that spectral bisection sheds" if delta > 0
+                    else ("identical outcome" if abs(delta) < 0.5
+                          else "classical served more — see note"),
+                    kind="ok" if delta > 0.5 else ("crit" if delta < -0.5 else "")),
+                    unsafe_allow_html=True)
+
+                if delta < -0.5:
+                    st.markdown(f"""
+<div class="callout">
+  <div class="h">Honest result — the classical baseline won this one</div>
+  <p>QAOA returned the <strong>true optimum of the stated objective</strong>
+  {'(verified by brute force)' if run.is_optimal else ''}, yet served
+  <strong>{abs(delta):,.0f} MW less</strong> than spectral bisection. That is a statement
+  about the <em>objective</em>, not the solver: the balance term penalises an island with
+  surplus generation exactly as hard as one with a deficit, though only deficits shed load.</p>
+  <p>Objective alignment is the open algorithm problem here, and it is the kind of thing
+  this platform exists to expose. Try raising <strong>Island power balance</strong>.</p>
+</div>""", unsafe_allow_html=True)
 
             left, right = st.columns([3, 2])
             with left:
@@ -114,9 +165,33 @@ evidence the circuit is doing work.</p>"""), unsafe_allow_html=True)
             st.markdown(ui.card_html("Simulation note", """
 <p>The cost Hamiltonian is diagonal in the computational basis, so exp(-iγH<sub>C</sub>) is
 applied as a single elementwise phase multiply rather than as thousands of individual RZZ
-gates. This is an <strong>optimization, not an approximation</strong>: applying every RZZ
-separately produces an identical state to within 1e-16, which the GB10 service verifies on
-request via <code>POST /qaoa/verify</code>.</p>"""), unsafe_allow_html=True)
+gates. This is an <strong>optimization, not an approximation</strong> — and you can check that
+here rather than take it on faith.</p>"""), unsafe_allow_html=True)
+
+            if st.button("🔍  Verify: apply every RZZ gate individually and compare"):
+                with st.spinner("Running both paths on the live backend…"):
+                    st.session_state["verify"] = verify_fast_path(
+                        run.model, layers=run.result.get("layers", layers),
+                        backend_preference=pref)
+
+            v = st.session_state.get("verify")
+            if v:
+                if v.get("error"):
+                    st.error(f"Verification failed: {v['error']}")
+                else:
+                    dev = v.get("max_amplitude_deviation", 0.0)
+                    ok = v.get("equivalent")
+                    st.markdown(f"""
+<div class="callout" style="border-left-color:var(--{'ok' if ok else 'crit'});
+     background:rgba(61,220,151,.06);border-color:rgba(61,220,151,.32)">
+  <div class="h" style="color:var(--{'ok' if ok else 'crit'})">
+    {'Verified equivalent' if ok else 'NOT equivalent'} — {v.get('n_qubits')} qubits,
+    p={v.get('layers')}, on {v.get('backend')}</div>
+  <p>Maximum amplitude deviation between the diagonal fast path and gate-by-gate RZZ
+  application: <strong>{dev:.3e}</strong>
+  {'— floating-point noise, i.e. the two are the same unitary.' if ok
+   else '— above tolerance, the fast path is NOT reproducing the gate sequence.'}</p>
+</div>""", unsafe_allow_html=True)
         else:
             st.info("Run an optimization to populate the measured statevector distribution.")
 
