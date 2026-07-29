@@ -1,0 +1,143 @@
+/* Grid Ops — Federal Grid Operations Command Center
+   Dark operations-room aesthetic: near-black field, raised instrument panels,
+   Dell cyan reserved for live/actionable state so it never becomes decoration. */
+
+:root {
+  --bg: #0a0e17;
+  --surface: #131a29;
+  --surface-alt: #1a2438;
+  --border: #243149;
+  --accent: #00c8ff;
+  --accent-dim: #0a7ea4;
+  --text: #e6edf7;
+  --text-dim: #8fa3c0;
+  --ok: #3ddc97;
+  --warn: #ffc857;
+  --crit: #ff5c5c;
+  --island-a: #00c8ff;
+  --island-b: #ff9f1c;
+  --mono: "SF Mono", "JetBrains Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+}
+
+.stApp { background: var(--bg); color: var(--text); }
+.block-container { padding-top: 1.2rem; max-width: 1500px; }
+
+/* ── Header banner ───────────────────────────────────────────────────────── */
+.gridops-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1.5rem; flex-wrap: wrap;
+  padding: 1rem 1.4rem; margin-bottom: 1.2rem;
+  background: linear-gradient(100deg, #0d1626 0%, #131a29 55%, #0f1b2e 100%);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+}
+.gridops-header .title { font-size: 1.42rem; font-weight: 650; letter-spacing: .015em; }
+.gridops-header .title .accent { color: var(--accent); }
+.gridops-header .sub {
+  font-family: var(--mono); font-size: .72rem; color: var(--text-dim);
+  letter-spacing: .1em; text-transform: uppercase; margin-top: .25rem;
+}
+.gridops-header .brand {
+  text-align: right; font-family: var(--mono); font-size: .68rem;
+  color: var(--text-dim); letter-spacing: .09em; line-height: 1.65;
+}
+.gridops-header .brand strong { color: var(--text); font-weight: 600; letter-spacing: .06em; }
+
+/* ── Status pills ────────────────────────────────────────────────────────── */
+.pill {
+  display: inline-flex; align-items: center; gap: .45rem;
+  font-family: var(--mono); font-size: .68rem; letter-spacing: .07em;
+  text-transform: uppercase; padding: .28rem .65rem;
+  border-radius: 3px; border: 1px solid var(--border); background: var(--surface-alt);
+  color: var(--text-dim);
+}
+.pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim); }
+.pill.live { color: var(--ok); border-color: rgba(61,220,151,.35); }
+.pill.live .dot { background: var(--ok); box-shadow: 0 0 7px var(--ok); }
+.pill.warn { color: var(--warn); border-color: rgba(255,200,87,.35); }
+.pill.warn .dot { background: var(--warn); }
+.pill.down { color: var(--crit); border-color: rgba(255,92,92,.35); }
+.pill.down .dot { background: var(--crit); }
+
+/* ── Instrument cards ────────────────────────────────────────────────────── */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 4px; padding: 1rem 1.15rem; height: 100%;
+}
+.card h4 {
+  margin: 0 0 .6rem 0; font-family: var(--mono); font-size: .7rem;
+  letter-spacing: .11em; text-transform: uppercase; color: var(--accent);
+  font-weight: 600;
+}
+.card p { color: var(--text-dim); font-size: .86rem; line-height: 1.6; margin: .35rem 0; }
+.card strong { color: var(--text); }
+
+/* Metric readouts — numbers are the point, so they get the weight. */
+.metric { background: var(--surface); border: 1px solid var(--border);
+  border-left: 2px solid var(--accent); border-radius: 3px; padding: .7rem .9rem; }
+.metric .label {
+  font-family: var(--mono); font-size: .64rem; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--text-dim);
+}
+.metric .value { font-size: 1.5rem; font-weight: 650; color: var(--text); line-height: 1.25; }
+.metric .unit { font-size: .8rem; color: var(--text-dim); font-weight: 400; margin-left: .2rem; }
+.metric .note { font-family: var(--mono); font-size: .64rem; color: var(--text-dim); margin-top: .2rem; }
+.metric.ok { border-left-color: var(--ok); }
+.metric.warn { border-left-color: var(--warn); }
+.metric.crit { border-left-color: var(--crit); }
+
+/* ── Layered architecture stack (Tab 4) ──────────────────────────────────── */
+.layer {
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 3px solid var(--accent); border-radius: 4px;
+  padding: .85rem 1.1rem; margin-bottom: .6rem;
+}
+.layer .tier {
+  font-family: var(--mono); font-size: .62rem; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--accent-dim);
+}
+.layer .name { font-size: 1rem; font-weight: 600; color: var(--text); margin: .1rem 0 .3rem; }
+.layer .desc { color: var(--text-dim); font-size: .85rem; line-height: 1.6; }
+.layer .tech {
+  font-family: var(--mono); font-size: .7rem; color: var(--accent);
+  margin-top: .4rem; letter-spacing: .03em;
+}
+.layer.hw { border-left-color: var(--island-b); }
+.layer.hw .tier, .layer.hw .tech { color: var(--island-b); }
+
+/* ── Circuit / ASCII rendering ───────────────────────────────────────────── */
+.circuit {
+  font-family: var(--mono); font-size: .74rem; line-height: 1.5;
+  background: #070b12; border: 1px solid var(--border); border-radius: 4px;
+  padding: .9rem 1rem; overflow-x: auto; white-space: pre; color: var(--text);
+}
+
+/* ── Streamlit chrome ────────────────────────────────────────────────────── */
+section[data-testid="stSidebar"] { background: #0c1220; border-right: 1px solid var(--border); }
+section[data-testid="stSidebar"] h2 {
+  font-family: var(--mono); font-size: .72rem; letter-spacing: .11em;
+  text-transform: uppercase; color: var(--accent);
+}
+
+.stTabs [data-baseweb="tab-list"] { gap: .3rem; border-bottom: 1px solid var(--border); }
+.stTabs [data-baseweb="tab"] {
+  background: transparent; color: var(--text-dim); border-radius: 3px 3px 0 0;
+  padding: .5rem .95rem; font-size: .86rem;
+}
+.stTabs [aria-selected="true"] {
+  background: var(--surface); color: var(--accent);
+  border-bottom: 2px solid var(--accent);
+}
+
+.stButton > button {
+  background: var(--accent-dim); color: #041017; border: 1px solid var(--accent);
+  border-radius: 3px; font-weight: 650; letter-spacing: .03em; transition: all .15s ease;
+}
+.stButton > button:hover {
+  background: var(--accent); color: #04121a; box-shadow: 0 0 14px rgba(0,200,255,.28);
+}
+
+div[data-testid="stMetricValue"] { color: var(--text); }
+hr { border-color: var(--border); }
+code { color: var(--accent); background: var(--surface-alt); }

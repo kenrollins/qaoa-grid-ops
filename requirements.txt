@@ -1,0 +1,19 @@
+# Grid Ops — Hybrid Quantum-Classical Grid Optimization
+# Verified against Python 3.12 / x86_64 / NVIDIA driver 580.126.09 / 4x L4.
+#
+# PIN NOTE: qiskit-aer-gpu 0.15.1 (the newest wheel carrying cuStateVec) requires
+# qiskit >=1.1,<2. Qiskit 2.x would silently drop us to the CPU-only simulator and
+# take the whole GPU story with it. Do not relax this pin without re-verifying
+# `AerSimulator(device='GPU', cuStateVec_enable=True)` still constructs.
+
+qiskit>=1.1.0,<2.0.0
+qiskit-aer-gpu>=0.15.0
+cuquantum-python-cu12>=23.0.0
+
+networkx>=3.0
+numpy>=1.24.0
+scipy>=1.10.0
+
+streamlit>=1.30.0
+plotly>=5.18.0
+pandas>=2.0.0

@@ -1,0 +1,17 @@
+[server]
+port = 8501
+address = "0.0.0.0"
+headless = true
+fileWatcherType = "auto"
+# Partition schedules for a 24-substation grid are small; keep the default cap.
+maxUploadSize = 50
+
+[theme]
+base = "dark"
+backgroundColor = "#0a0e17"
+secondaryBackgroundColor = "#131a29"
+primaryColor = "#00c8ff"
+textColor = "#e6edf7"
+
+[browser]
+gatherUsageStats = false
