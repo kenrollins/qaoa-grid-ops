@@ -122,21 +122,39 @@ def _rho_apply_1q(rho: Any, n: int, t: int, m: Any, xp: Any) -> Any:
 def depolarize(rho: Any, n: int, p: float, xp: Any) -> Any:
     """Per-qubit depolarising channel: ρ → (1-p)ρ + (p/3)(XρX + YρY + ZρZ).
 
-    The standard first-order error model. Each qubit's channel needs three Pauli
-    conjugations of the full ρ, which is why noisy simulation is expensive in
-    time as well as memory.
+    The standard first-order error model — applied in CLOSED FORM, not as three
+    explicit Pauli conjugations. The single-qubit identity
+    ρ + XρX + YρY + ZρZ = 2·(I ⊗ Tr_t ρ) collapses the channel to block
+    arithmetic on qubit t's 2×2 row/column structure:
+
+        B00 → (1−2p/3)·B00 + (2p/3)·B11      populations mix toward each other
+        B11 → (2p/3)·B00 + (1−2p/3)·B11
+        B01, B10 → (1−4p/3)·B01, B10         coherences damp
+
+    Same channel, exactly (verified against the conjugation form at 1e-16).
+    The literal implementation copied the full ρ four times per qubit per
+    layer — at 14 qubits that is 4 GB per copy and was the dominant cost of
+    noisy runs. This form touches ρ once per qubit with one quarter-size temp.
     """
     if p <= 0:
         return rho
-    X = xp.array([[0, 1], [1, 0]], dtype=xp.complex128)
-    Y = xp.array([[0, -1j], [1j, 0]], dtype=xp.complex128)
-    Z = xp.array([[1, 0], [0, -1]], dtype=xp.complex128)
+    a = 1.0 - 2.0 * p / 3.0     # diagonal-block self weight
+    b = 2.0 * p / 3.0           # diagonal-block exchange weight
+    c = 1.0 - 4.0 * p / 3.0     # coherence damping
 
     for t in range(n):
-        acc = (1.0 - p) * rho
-        for pauli in (X, Y, Z):
-            acc += (p / 3.0) * _rho_apply_1q(rho.copy(), n, t, pauli, xp)
-        rho = acc
+        low, high = 1 << t, 1 << (n - t - 1)
+        v = rho.reshape(high, 2, low, high, 2, low)
+        b00 = v[:, 0, :, :, 0, :]
+        b11 = v[:, 1, :, :, 1, :]
+        tmp = b00.copy()
+        b00 *= a
+        b00 += b * b11
+        b11 *= a
+        b11 += b * tmp
+        del tmp
+        v[:, 0, :, :, 1, :] *= c
+        v[:, 1, :, :, 0, :] *= c
     return rho
 
 
