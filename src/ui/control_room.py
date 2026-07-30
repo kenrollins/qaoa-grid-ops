@@ -304,3 +304,102 @@ def alarm_log(events: list[dict], limit: int = 22) -> str:
         f'<span class="src">{e["src"]}</span><span class="msg">{e["msg"]}</span></div>'
         for e in events[:limit])
     return f'<div class="alarmlog">{rows}</div>'
+
+
+# ── Animation ────────────────────────────────────────────────────────────────
+
+def _line_arrow_track(g, sol, opened, n_steps: int, per_line: int = 3):
+    """Precompute arrow positions for every animation step.
+
+    Arrows march along each line in the direction power is flowing, at a speed
+    proportional to loading — so a heavily loaded corridor visibly runs faster
+    than a lightly loaded one. All arrows live in ONE trace per frame so the
+    animation updates a couple of arrays rather than hundreds of traces.
+    """
+    segs = []
+    for u, v in g.edges():
+        e = g.edges[u, v]
+        key = tuple(sorted((int(u), int(v))))
+        if e.get("faulted") or key in opened:
+            continue
+        f = sol.flows.get((int(u), int(v)))
+        if f is None:
+            f = -sol.flows.get((int(v), int(u)), 0.0)
+        if abs(f) < 0.5:
+            continue
+        loading = sol.loading.get((int(u), int(v)),
+                                  sol.loading.get((int(v), int(u)), 0.0))
+        x0, y0 = g.nodes[u]["x"], g.nodes[u]["y"]
+        x1, y1 = g.nodes[v]["x"], g.nodes[v]["y"]
+        if f < 0:                      # draw in the direction power actually goes
+            x0, y0, x1, y1 = x1, y1, x0, y0
+        ang = math.degrees(math.atan2(y1 - y0, x1 - x0)) - 90
+        color, _ = pf.loading_band(loading)
+        if loading < 0.80:
+            color = e.get("kv_color", "#8a99ad")
+        # Faster march when the line is working harder.
+        speed = 0.6 + min(2.2, loading * 1.9)
+        segs.append((x0, y0, x1, y1, ang, color, 8 + min(9, abs(f) / 14.0), speed))
+
+    frames_xy = []
+    for k in range(n_steps):
+        xs, ys, angs, cols, sizes = [], [], [], [], []
+        for x0, y0, x1, y1, ang, color, size, speed in segs:
+            base = (k * speed / n_steps) % 1.0
+            for a in range(per_line):
+                t = (base + a / per_line) % 1.0
+                xs.append(x0 + (x1 - x0) * t)
+                ys.append(y0 + (y1 - y0) * t)
+                angs.append(ang); cols.append(color); sizes.append(size)
+        frames_xy.append((xs, ys, angs, cols, sizes))
+    return frames_xy
+
+
+def animate(fig, g, sol, opened=None, n_steps: int = 24, duration: int = 90):
+    """Add marching power-flow arrows to an existing one-line diagram.
+
+    The static figure already carries the arrows; this replaces them with an
+    animated trace and attaches Plotly frames plus a play control. A grid that
+    moves reads as *operating* rather than as a diagram of a grid.
+    """
+    opened = opened or set()
+    track = _line_arrow_track(g, sol, opened, n_steps)
+    if not track or not track[0][0]:
+        return fig
+
+    # Drop the static arrow markers; the animated trace supersedes them.
+    keep = [tr for tr in fig.data
+            if not (tr.mode == "markers" and getattr(tr.marker, "symbol", None) == "arrow")]
+    fig.data = tuple(keep)
+
+    xs, ys, angs, cols, sizes = track[0]
+    fig.add_trace(go.Scatter(
+        x=xs, y=ys, mode="markers", name="power flow",
+        marker=dict(symbol="arrow", size=sizes, angle=angs, color=cols,
+                    line=dict(color=COLORS["bg"], width=0.6)),
+        showlegend=False, hoverinfo="skip"))
+    flow_idx = len(fig.data) - 1
+
+    fig.frames = [
+        go.Frame(name=str(k),
+                 data=[go.Scatter(x=x, y=y,
+                                  marker=dict(symbol="arrow", size=s, angle=a, color=c,
+                                              line=dict(color=COLORS["bg"], width=0.6)))],
+                 traces=[flow_idx])
+        for k, (x, y, a, c, s) in enumerate(track)]
+
+    fig.update_layout(updatemenus=[dict(
+        type="buttons", direction="left", showactive=False,
+        x=0.01, xanchor="left", y=0.02, yanchor="bottom",
+        bgcolor="rgba(19,26,41,.9)", bordercolor=COLORS["border"], borderwidth=1,
+        font=dict(color=COLORS["accent"], size=11),
+        buttons=[
+            dict(label="▶  ENERGISE", method="animate",
+                 args=[None, dict(frame=dict(duration=duration, redraw=True),
+                                  transition=dict(duration=0),
+                                  fromcurrent=True, mode="immediate")]),
+            dict(label="⏸", method="animate",
+                 args=[[None], dict(frame=dict(duration=0, redraw=False),
+                                    mode="immediate")]),
+        ])])
+    return fig

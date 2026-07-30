@@ -260,3 +260,27 @@ code { color: var(--accent); background: var(--surface-alt); }
 .statecard.elevated .hl{ color: var(--warn); }
 .statecard.cascade .hl { color: var(--crit); }
 .statecard .dt { font-size: .78rem; color: var(--text-dim); line-height: 1.5; }
+
+/* ── Narration panel — the plain-language voice of the demo ──────────────── */
+.narrate {
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 4px solid var(--accent); border-radius: 4px;
+  padding: 1rem 1.25rem; margin: .3rem 0 .8rem;
+}
+.narrate .h {
+  font-family: var(--mono); font-size: .74rem; letter-spacing: .1em;
+  text-transform: uppercase; font-weight: 650; color: var(--accent);
+  margin-bottom: .5rem;
+}
+.narrate p { color: var(--text-dim); font-size: .95rem; line-height: 1.68; margin: .45rem 0; }
+.narrate p b { color: var(--text); font-weight: 650; }
+.narrate .cue {
+  margin-top: .7rem; padding-top: .6rem; border-top: 1px solid var(--border);
+  color: var(--accent); font-size: .88rem;
+}
+.narrate .cue b { color: var(--accent); }
+.narrate.ok   { border-left-color: var(--ok); }
+.narrate.ok .h { color: var(--ok); }
+.narrate.crit { border-left-color: var(--crit); background: rgba(255,45,85,.05); }
+.narrate.crit .h { color: var(--crit); }
+.narrate.accent { border-left-color: var(--accent); }

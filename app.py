@@ -108,7 +108,8 @@ if run_clicked:
 
 # ── Pages ────────────────────────────────────────────────────────────────────
 def _command_center() -> None:
-    command_center_view.render(spec, backend, layers, pref, grid=_grid, fault=fault)
+    command_center_view.render(spec, backend, layers, pref, steps=steps,
+                               grid=_grid, fault=fault)
 
 
 def _architecture() -> None:

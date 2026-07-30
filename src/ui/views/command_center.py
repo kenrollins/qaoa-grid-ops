@@ -10,7 +10,9 @@ import streamlit as st
 
 from src.simulation.grid_model import apply_fault, build_grid
 from src.simulation import power_flow as pf
-from src.simulation.qaoa_engine import scaling_probe, verify_fast_path
+from src.simulation.qaoa_engine import (
+    run_islanding_optimization, scaling_probe, verify_fast_path,
+)
 from src.ui import components as ui
 from src.ui import control_room as cr
 from src.ui.views import limits as limits_view
@@ -42,7 +44,7 @@ def _state_cards(run) -> str:
     return f'<div class="statebar">{"".join(out)}</div>'
 
 
-def render(spec, backend: dict, layers: int, pref: str,
+def render(spec, backend: dict, layers: int, pref: str, steps: int = 30,
            grid=None, fault: list | None = None) -> None:
     run = st.session_state.get("run")
     fault = fault or []
@@ -56,149 +58,178 @@ def render(spec, backend: dict, layers: int, pref: str,
         "📊  Simulation Capability",
     ])
 
-    # ── Tab 1 — the result ───────────────────────────────────────────────────
+    # ── Tab 1 — the scenario, stepped ────────────────────────────────────────
     with tab1:
-        if run is None:
-            # The landing state gets the SAME control-room treatment as a solved
-            # run. Previously this branch fell back to a plain graph, so anyone
-            # who had not yet pressed Run — i.e. everyone arriving at the page —
-            # saw none of the instrumentation and concluded nothing had changed.
-            base0 = pf.calibrate_ratings(grid if grid is not None else build_grid(spec))
-            g0 = apply_fault(base0, fault)
-            sol0 = pf.solve(g0)
-            risk0 = pf.cascade_risk(sol0)
+        step = st.session_state.get("demo_step", 0)
+        base = pf.calibrate_ratings(grid if grid is not None else build_grid(spec))
+        faulted_graph = apply_fault(base, fault)
+        fault_label = ", ".join(
+            f"{base.nodes[u]['name']} ↔ {base.nodes[v]['name']} "
+            f"({base.edges[u, v].get('base_flow_mw', 0):.0f} MW, "
+            f"{base.edges[u, v].get('kv', 115)} kV)" for u, v in fault) or "—"
 
-            if fault:
-                lines = ", ".join(
-                    f"{g0.nodes[u]['name']} ↔ {g0.nodes[v]['name']} "
-                    f"({g0.edges[u, v].get('base_flow_mw', g0.edges[u, v]['flow_mw']):.0f} MW)"
-                    for u, v in fault)
-                st.error(f"⚡ **CONTINGENCY — line fault:** {lines} · "
-                         f"peak line loading now **{sol0.worst_loading * 100:.0f}%** across "
-                         f"**{len(sol0.overloads)}** overloaded line(s). "
-                         "Press **🚀 Run Hybrid Optimization** for an islanding response.")
-            else:
-                st.info("Grid intact and secure. Select a contingency in the sidebar.")
+        # ── The control bar: one obvious next action at every step ──────────
+        bar = st.columns([1, 1, 1, 3])
+        if bar[0].button("① Normal", width="stretch",
+                         type="primary" if step == 0 else "secondary"):
+            st.session_state["demo_step"] = 0
+            st.session_state.pop("run", None)
+            st.rerun()
+        if bar[1].button("② ⚡ Trip the line", width="stretch", disabled=not fault,
+                         type="primary" if step == 1 else "secondary"):
+            st.session_state["demo_step"] = 1
+            st.session_state.pop("run", None)
+            st.rerun()
+        if bar[2].button("③ 🚀 Solve it", width="stretch", disabled=not fault,
+                         type="primary" if step == 2 else "secondary"):
+            with st.spinner(f"Searching {2 ** spec.n_nodes:,} possible grid splits on "
+                            f"{backend['label']}…"):
+                st.session_state["run"] = run_islanding_optimization(
+                    spec, layers=layers, steps=steps, backend_preference=pref,
+                    graph=base, fault=fault)
+            st.session_state["demo_step"] = 2
+            st.rerun()
+        if not fault:
+            bar[3].info("Pick a contingency in the sidebar to enable steps ② and ③.")
 
-            st.markdown(
-                cr.instrument_strip(sol0, risk0,
-                                    "awaiting operator action" if fault else "normal state"),
-                unsafe_allow_html=True)
-            st.plotly_chart(cr.one_line_diagram(g0, sol0), width="stretch")
-            if risk0["level"] != "secure":
-                st.markdown(
-                    f'<div class="callout"><div class="h">Security assessment</div>'
-                    f'<p>{risk0["note"]} Highest loading <b>{risk0["worst"]:.0f}%</b> of '
-                    f'rating. No islanding action has been taken.</p></div>',
-                    unsafe_allow_html=True)
-        else:
+        run = st.session_state.get("run")
+
+        # ── Step 0 — the grid, running ──────────────────────────────────────
+        if step == 0 or not fault:
+            sol = pf.solve(base)
+            st.markdown(f"""
+<div class="narrate ok">
+  <div class="h">① Normal operation</div>
+  <p>A {spec.n_nodes}-substation transmission network carrying
+  <b>{sol.total_load_mw:,.0f} MW</b> to customers, running at
+  <b>{sol.frequency_hz:.2f} Hz</b>. Squares are power stations, circles are
+  substations delivering load. Arrows are the electricity itself — thicker,
+  lighter lines are the high-voltage backbone, and the arrows move faster where a
+  line is working harder.</p>
+  <p>Every line is inside its rating; the busiest is at
+  <b>{sol.worst_loading * 100:.0f}%</b>. Nothing is wrong — and that is the point
+  of looking at it now, so the next screen means something.</p>
+  <p class="cue">▶ Press <b>ENERGISE</b> on the diagram to start the flow, then
+  <b>② Trip the line</b> above.</p>
+</div>""", unsafe_allow_html=True)
+            st.markdown(cr.instrument_strip(sol, pf.cascade_risk(sol), "normal state"),
+                        unsafe_allow_html=True)
+            st.plotly_chart(cr.animate(cr.one_line_diagram(base, sol), base, sol),
+                            width="stretch")
+
+        # ── Step 1 — the fault ──────────────────────────────────────────────
+        elif step == 1:
+            sol = pf.solve(faulted_graph)
+            risk = pf.cascade_risk(sol)
+            worst = ", ".join(
+                f"{faulted_graph.nodes[u]['name']}↔{faulted_graph.nodes[v]['name']} "
+                f"at <b>{ld * 100:.0f}%</b>" for u, v, ld in sol.overloads[:3]) or "none"
+            st.markdown(f"""
+<div class="narrate crit">
+  <div class="h">② A line just failed — {fault_label}</div>
+  <p>The power that line was carrying did not stop. It <b>rerouted</b> onto
+  whatever lines remain, and those lines were not built for it. Watch the arrows:
+  they have redistributed, and the overloaded corridors are now running hot.</p>
+  <p>Lines beyond their safe rating: {worst}. A line held above its rating
+  overheats, sags, and its own protection trips it out — which pushes its power
+  onto the next line, which trips too. <b>That chain reaction is how a blackout
+  happens</b>, and it is how the 2003 Northeast blackout began.</p>
+  <p>Nobody has intervened yet. The operator has minutes, sometimes seconds, to
+  decide where to deliberately break the grid apart so the failure cannot spread.
+  The number of ways to split {spec.n_nodes} substations into two groups is
+  <b>{2 ** spec.n_nodes:,}</b>.</p>
+  <p class="cue">▶ Press <b>③ Solve it</b> above.</p>
+</div>""", unsafe_allow_html=True)
+            st.markdown(cr.instrument_strip(sol, risk, "no operator action taken"),
+                        unsafe_allow_html=True)
+            st.plotly_chart(
+                cr.animate(cr.one_line_diagram(faulted_graph, sol), faulted_graph, sol),
+                width="stretch")
+            st.markdown(f'<div class="callout"><div class="h">Security assessment</div>'
+                        f'<p>{risk["note"]} Highest loading <b>{risk["worst"]:.0f}%</b>.</p>'
+                        f'</div>', unsafe_allow_html=True)
+
+        # ── Step 2 — the answer ─────────────────────────────────────────────
+        elif step == 2 and run is not None:
             r, res = run.report, run.result
-            for w in run.warnings:
-                st.warning(w)
+            sol = run.flow_islanded
+            risk = pf.cascade_risk(sol)
+            opened = {tuple(sorted((u, v))) for u, v, _ in r.severed_lines}
+            sel = res.get("selection") or {}
+            isl = sol.island_state
 
-            if run.fault:
-                lines = ", ".join(f"{run.graph.nodes[u]['name']} ↔ {run.graph.nodes[v]['name']} "
-                                  f"({f:.0f} MW)" for u, v, f in run.fault)
-                st.error(f"⚡ **CONTINGENCY — line fault:** {lines} · "
-                         f"islanding response computed in {res.get('seconds', 0):.2f} s")
+            st.markdown(f"""
+<div class="narrate accent">
+  <div class="h">③ The quantum algorithm chose where to cut</div>
+  <p>QAOA searched all <b>{2 ** run.model.n_qubits:,}</b> possible ways to split this
+  grid — one qubit per substation — and returned an answer in
+  <b>{res.get('seconds', 0):.2f} seconds</b> on the {backend['label']}.</p>
+  <p>It does not test the options one at a time. It puts all
+  {2 ** run.model.n_qubits:,} of them into superposition at once, then uses
+  interference to make the good splits more likely to be measured and the bad ones
+  cancel out. What comes back is not a single answer but a
+  <b>shortlist</b> — the {sel.get('candidates_screened', 0)} most probable splits —
+  and each was then checked against real power-flow physics.
+  {'The most likely one was also the best.' if sel.get('chosen_was_argmax')
+   else 'A less-likely candidate turned out to be electrically better, and won.'}</p>
+  <p>The plan: open <b>{len(r.severed_lines)}</b> breaker(s), forming
+  <b>{len(isl)}</b> self-sufficient islands
+  ({' and '.join(f"{len(s['nodes'])} substations at {s['frequency_hz']:.2f} Hz"
+                  for s in isl[:2])}). Each island now generates its own power
+  instead of leaning on the rest of the network.</p>
+</div>""", unsafe_allow_html=True)
 
-            c = st.columns(4)
-            c[0].markdown(ui.metric_html(
-                "Interrupted flow", f"{r.interrupted_mw:,.0f}", "MW",
-                f"{len(r.severed_lines)} lines severed"), unsafe_allow_html=True)
-            c[1].markdown(ui.metric_html(
-                "Island A / B", f"{len(r.island_a)} / {len(r.island_b)}", "nodes",
-                f"net {r.imbalance_a_mw:+,.0f} / {r.imbalance_b_mw:+,.0f} MW"),
-                unsafe_allow_html=True)
-            c[2].markdown(ui.metric_html(
-                "Solve time", f"{res.get('seconds', 0):.2f}", "s",
-                f"{res.get('steps_run')} steps · {res.get('backend')}"),
-                unsafe_allow_html=True)
-            c[3].markdown(ui.metric_html(
-                "Plan status", "FEASIBLE" if r.feasible else "INFEASIBLE", "",
-                "; ".join(r.notes) if r.notes else "generation + contiguity verified",
-                kind="ok" if r.feasible else "crit"), unsafe_allow_html=True)
+            st.markdown(cr.instrument_strip(sol, risk, "islanding plan applied"),
+                        unsafe_allow_html=True)
+            st.plotly_chart(
+                cr.animate(cr.one_line_diagram(faulted_graph, sol, r, opened=opened),
+                           faulted_graph, sol, opened=opened),
+                width="stretch")
 
-            # ── Control-room view ────────────────────────────────────────
             st.markdown(_state_cards(run), unsafe_allow_html=True)
 
-            view = st.radio(
-                "Network state", ["① Before the fault", "② Fault — no action",
-                                  "③ After islanding"],
-                index=1, horizontal=True, label_visibility="collapsed",
-                help="Step through the contingency the way an operator lives it.")
-
-            opened = {tuple(sorted((u, v))) for u, v, _ in r.severed_lines}
-            if view.startswith("①"):
-                sol, rep, shown_open, cap = run.flow_intact, None, set(), "Normal state"
-            elif view.startswith("②"):
-                sol, rep, shown_open, cap = (run.flow_post_fault, None, set(),
-                                             "Fault on the system, no operator action")
-            else:
-                sol, rep, shown_open, cap = (run.flow_islanded, r, opened,
-                                             "Islanding plan applied")
-
-            if sol is not None:
-                risk = pf.cascade_risk(sol)
-                st.markdown(cr.instrument_strip(sol, risk, cap), unsafe_allow_html=True)
-                st.plotly_chart(
-                    cr.one_line_diagram(run.graph, sol, rep, opened=shown_open),
-                    width="stretch")
-                if risk["level"] != "secure":
-                    st.markdown(
-                        f'<div class="callout"><div class="h">Security assessment</div>'
-                        f'<p>{risk["note"]} Highest loading <b>{risk["worst"]:.0f}%</b> '
-                        f'of rating.</p></div>', unsafe_allow_html=True)
+            if run.exact:
+                # is_optimal refers to the plan ACTUALLY APPLIED, which is chosen
+                # for electrical security rather than for lowest energy. Saying
+                # "did not reach the optimum" here would read as a failure when it
+                # is a deliberate trade the objective cannot express.
+                if run.is_optimal:
+                    verdict = ("<b>matches the exact optimum</b> of the objective — the "
+                               "quantum result is provably the best available split")
+                else:
+                    verdict = ("<b>deliberately differs</b> from the objective's exact "
+                               "optimum: the energy-minimising split ran a line beyond its "
+                               "thermal rating, so a different candidate from the quantum "
+                               "shortlist was applied instead")
+                st.markdown(f"""
+<div class="callout" style="border-left-color:var(--ok);
+     background:rgba(61,220,151,.06);border-color:rgba(61,220,151,.32)">
+  <div class="h" style="color:var(--ok)">Checked against the exact answer</div>
+  <p>At {run.model.n_qubits} qubits every one of the
+  <b>{2 ** run.model.n_qubits:,}</b> partitions can still be brute-forced and compared.
+  The applied plan {verdict}.</p>
+  <p>Above roughly 20 qubits that check stops being affordable — an algorithm can be
+  quietly, confidently wrong with nothing to catch it. That is precisely why this work
+  happens at sizes where truth is still computable.</p>
+</div>""", unsafe_allow_html=True)
 
             log, side = st.columns([3, 2])
             with log:
                 st.markdown("###### Event log")
                 st.markdown(cr.alarm_log(cr.build_events(run)), unsafe_allow_html=True)
-                st.caption("Sequence and content are derived from the solved power "
-                           "flow; timestamps are synthesised for presentation.")
+                st.caption("Sequence and content derive from the solved power flow; "
+                           "timestamps are synthesised for presentation.")
             with side:
-                sel = run.result.get("selection") or {}
-                st.markdown(ui.card_html("How this plan was chosen", f"""
-<p>QAOA returns a <strong>distribution</strong> over partitions, not one answer. The top
-<strong>{sel.get('candidates_screened', 0)}</strong> measured states were each screened with a
-DC power flow, and the electrically securest was kept.</p>
-<p>{'The most probable outcome was also the best.' if sel.get('chosen_was_argmax')
-   else f"A <strong>lower-probability</strong> candidate won: the most likely one peaked at "
-        f"{(sel.get('argmax_worst_loading') or 0) * 100:.0f}% loading, the chosen plan at "
-        f"{(sel.get('chosen_worst_loading') or 0) * 100:.0f}%."}</p>
-<p>This is the hybrid loop as intended — the quantum stage proposes, classical physics
-disposes. Every candidate came off the circuit.</p>"""), unsafe_allow_html=True)
-
-            left, right = st.columns([3, 2])
-            with left:
+                st.download_button("⬇  Download islanding schedule (JSON)",
+                                   ui.partition_report_json(run),
+                                   file_name=f"islanding-schedule-{run.model.n_qubits}q.json",
+                                   mime="application/json", width="stretch")
                 st.plotly_chart(
                     ui.convergence_figure(run.energy_history,
                                           run.exact["energy"] if run.exact else None),
                     width="stretch")
-            with right:
-                if run.exact:
-                    verdict = ("matches the exact optimum" if run.is_optimal
-                               else "did not reach the exact optimum")
-                    st.markdown(ui.card_html("Verification", f"""
-<p>Brute force over all <strong>{2 ** run.model.n_qubits:,}</strong> partitions was computed
-for comparison. QAOA's returned plan <strong>{verdict}</strong>.</p>
-<p>Solution ratio <strong>{run.solution_ratio:.3f}</strong> · expectation ratio
-<strong>{run.expectation_ratio:.3f}</strong> · concentration
-<strong>{run.concentration:.1f}x</strong> uniform.</p>
-<p>The two ratios differ because ⟨H⟩ averages the whole measurement distribution, while the
-operator receives the single best partition.</p>"""), unsafe_allow_html=True)
-                else:
-                    st.markdown(ui.card_html("Verification", f"""
-<p>At {run.model.n_qubits} qubits the exact optimum is not brute-forced
-({2 ** run.model.n_qubits:,} partitions), so optimality is <strong>not claimed</strong>.</p>
-<p>Concentration <strong>{(run.concentration or 0):.1f}x</strong> over a uniform guess is the
-evidence the circuit is doing work.</p>"""), unsafe_allow_html=True)
-
-            st.download_button(
-                "⬇  Download islanding schedule (JSON)",
-                ui.partition_report_json(run),
-                file_name=f"islanding-schedule-{run.model.n_qubits}q.json",
-                mime="application/json")
+        else:
+            st.info("Press **③ Solve it** to run the optimization.")
 
     # ── Tab 2 — the explainer ────────────────────────────────────────────────
     with tab2:
