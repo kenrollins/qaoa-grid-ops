@@ -438,7 +438,7 @@ def _select_plan(g: nx.Graph, model: IsingModel, result: dict, spec: GridSpec):
 
     scored = [( _plan_score(g, model, b), b) for b in cands]
     scored.sort(key=lambda t: t[0][0])
-    (best_key, best_rep, best_sol), best_bits = scored[0][0], scored[0][1]
+    (_, best_rep, best_sol), best_bits = scored[0][0], scored[0][1]
 
     arg_key = next((k for (k, _, _), b in scored if b == argmax), None)
     selection = {

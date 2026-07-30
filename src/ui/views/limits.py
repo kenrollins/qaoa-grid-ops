@@ -52,7 +52,6 @@ def _qubits_for(capacity_bytes: float, noisy: bool) -> float:
 
 def memory_wall_figure() -> go.Figure:
     """The two curves that define the whole problem."""
-    import math
 
     ns = list(range(10, 56))
     sv = [(2 ** n) * 16 for n in ns]

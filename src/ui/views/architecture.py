@@ -20,7 +20,6 @@ def _spec(rows: list[tuple[str, str]]) -> str:
 
 def render(backend: dict) -> None:
     total_gb = backend.get("total_memory_bytes", 0) / 2**30
-    free_gb = backend.get("free_memory_bytes", 0) / 2**30
     ceiling = backend.get("max_qubits", 0)
     live = backend.get("available", False)
 

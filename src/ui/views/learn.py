@@ -24,13 +24,12 @@ import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
 
-from src.config.settings import COLORS, GridSpec, ObjectiveWeights
+from src.config.settings import COLORS, GridSpec
 from src.simulation import power_flow as pf
 from src.simulation import qaoa_core
 from src.simulation.grid_model import (
     apply_fault, build_grid, build_ising, brute_force_ground_state, evaluate_partition,
 )
-from src.ui import components as ui
 
 
 # ── Figure 1: interference, layer by layer ───────────────────────────────────
@@ -56,7 +55,7 @@ def _interference_data(n_nodes: int, seed: int, layers: int):
         qaoa_core.apply_mixer(sv, n_nodes, float(betas[k]), np)
         frames.append(np.abs(sv) ** 2)
 
-    best_bits, best_e = brute_force_ground_state(m)
+    best_bits, _ = brute_force_ground_state(m)
     best_idx = int(best_bits, 2)
     # Z2 symmetry: the complement is the same physical partition.
     comp_idx = (~best_idx) & (dim - 1)
@@ -67,7 +66,7 @@ def _interference_data(n_nodes: int, seed: int, layers: int):
 
 
 def interference_figure(n_nodes: int, seed: int, layers: int) -> go.Figure:
-    frames, sorted_diag, best_pos, comp_pos, dim = _interference_data(
+    frames, _, best_pos, comp_pos, dim = _interference_data(
         n_nodes, seed, layers)
     x = np.arange(dim)
     uniform = 1.0 / dim
@@ -144,7 +143,7 @@ def _landscape_data(n_nodes: int, seed: int, res: int = 60):
 
 
 def landscape_figure(n_nodes: int, seed: int) -> go.Figure:
-    gammas, betas, z, g_sigma, g_maxj, sigma, max_j = _landscape_data(n_nodes, seed)
+    gammas, betas, z, g_sigma, g_maxj, sigma, _ = _landscape_data(n_nodes, seed)
     fig = go.Figure(go.Heatmap(
         # NO reversescale. Turbo runs blue -> red, so low <H> (better) is blue,
         # which is what the caption promises. reversescale=True inverted this and
