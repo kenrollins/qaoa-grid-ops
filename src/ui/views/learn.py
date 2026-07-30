@@ -146,7 +146,10 @@ def _landscape_data(n_nodes: int, seed: int, res: int = 60):
 def landscape_figure(n_nodes: int, seed: int) -> go.Figure:
     gammas, betas, z, g_sigma, g_maxj, sigma, max_j = _landscape_data(n_nodes, seed)
     fig = go.Figure(go.Heatmap(
-        x=gammas, y=betas, z=z, colorscale="Turbo", reversescale=True,
+        # NO reversescale. Turbo runs blue -> red, so low <H> (better) is blue,
+        # which is what the caption promises. reversescale=True inverted this and
+        # put the best result in the hottest colour.
+        x=gammas, y=betas, z=z, colorscale="Turbo",
         colorbar=dict(title="⟨H⟩<br>lower<br>is better", tickfont=dict(size=10)),
         hovertemplate="γ = %{x:.3f}<br>β = %{y:.3f}<br>⟨H⟩ = %{z:.3f}<extra></extra>"))
 
@@ -163,7 +166,7 @@ def landscape_figure(n_nodes: int, seed: int) -> go.Figure:
                   annotation_text=f" correct range ends here (σ(H)={sigma:.1f})",
                   annotation_position="top", annotation_font=dict(color=COLORS["ok"], size=10))
     fig.add_vline(x=g_maxj, line=dict(color=COLORS["crit"], width=2.5, dash="dash"),
-                  annotation_text=f" where max|J|={max_j:.1f} sent the search ",
+                  annotation_text=" old range searched out to here ",
                   annotation_position="bottom",
                   annotation_font=dict(color=COLORS["crit"], size=10))
 
@@ -316,34 +319,51 @@ how good the result was.** Cool colours are better.
     with st.spinner("Evaluating the landscape…"):
         st.plotly_chart(landscape_figure(n_nodes, int(seed)), width="stretch")
     st.markdown("""
-Three things are visible at a glance, and they are the whole difficulty:
+Read the shape rather than any single point:
 
-- **The good region is small.** Most of the map is one flat colour. An optimizer
-  dropped at random has no gradient to follow — it is standing in a field with no
-  slope, and this gets exponentially worse with more qubits. That is the
-  *barren plateau* problem.
-- **Too much γ is as bad as too little.** Past a certain point the colours become
-  stripes. Phase wraps around, and the ordering between good and bad answers is
-  scrambled — the circuit is running hard and achieving noise.
-- **The two vertical lines are a real bug from this project.** We originally sized
-  the search range by the largest single coupling in the problem (red dashed) rather
-  than the spread of the whole cost function (green). On a densely connected problem
-  those differ by roughly the square root of the number of terms, so most of the
-  search budget was spent out in the striped region. Deeper circuits scored *worse*
-  than shallow ones until it was fixed.
+- **β matters more than you would guess.** There is a broad *good band* of mixer
+  settings and a broad *bad band*, and they are separated sharply. Choose β badly and
+  no value of γ rescues the run — the two dials are not independent.
+- **There is a real basin here, and that is good news.** At this size the surface has
+  clear structure, so an optimizer can find its way downhill. **This is exactly why
+  algorithm development happens at small qubit counts.** The flatness that makes
+  optimization hard — the *barren plateau*, where gradients vanish exponentially with
+  qubit count — emerges as systems grow. You develop where you can still see the
+  slope, then scale.
+- **The two vertical lines are a real bug from this project.** We originally sized the
+  γ search range from the largest single coupling in the problem (red dashed) instead
+  of the spread of the whole cost function (green). The search ran ~1.5x wider than
+  the informative region, spending budget where γ is too large to order candidates
+  usefully. Combined with a second problem — dividing a small evaluation budget across
+  circuit layers — deeper circuits scored *worse* than shallow ones until both were
+  fixed.
 """)
     with st.expander("Why the spread, and not the biggest coupling?"):
         st.markdown(r"""
 The cost step separates two candidates by the phase difference
 $\gamma\,[H(x) - H(y)]$. What matters is therefore the spread of $H$ across
-candidates — its standard deviation $\sigma(H)$ — not the size of any single term.
+candidate solutions — its standard deviation $\sigma(H)$ — and not the size of any
+individual coupling term.
 
-For a Hamiltonian built from $m$ comparable coupling terms, $\sigma(H)$ grows
-roughly as $\sqrt{m}\,|J|$, while $\max|J|$ does not grow at all. Our 12-node
-problem has 66 terms: measured $\sigma(H) \approx 3.5$ against $\max|J| \approx 2.5$.
+Those two quantities come apart as a problem gets denser, because many terms
+contribute to the total cost while $\max|J|$ describes only one of them. Measured on
+this project's objective:
+
+| nodes | coupling terms | $\sigma(H)$ | $\max|J|$ | ratio |
+|---|---|---|---|---|
+| 12 | 66 | 0.743 | 0.314 | 2.4x |
+| 16 | 120 | 1.071 | 0.306 | 3.5x |
+
+The ratio grows with problem size, which is what makes $\max|J|$ an unsafe proxy.
+
+A caution on a tempting shortcut: for a Hamiltonian of $m$ *equal-magnitude*
+independent terms, $\sigma(H)$ would grow as $\sqrt{m}\,|J|$, and an earlier version
+of these notes quoted that. It does not hold here — our objective sums three terms
+with deliberately different scalings, so the measured ratio (2-4x) is far below
+$\sqrt{m}$ (8-11x). Measure $\sigma(H)$; do not estimate it.
 
 Setting $\gamma_{max} = \pi / (2\sigma(H))$ keeps the search inside the region where
-phases still order candidates by quality.
+phase differences still order candidates by quality.
 """)
 
     # ── 3. The solution space ───────────────────────────────────────────────

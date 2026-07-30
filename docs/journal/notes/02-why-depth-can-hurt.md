@@ -55,14 +55,31 @@ amount that grows with problem density.
 What determines whether two candidates receive usefully different phases is the
 difference in their *total* cost. The relevant scale is therefore the standard
 deviation of H across candidate solutions, σ(H), not the size of any individual
-term. For a Hamiltonian with m coupling terms of comparable magnitude, σ(H)
-grows roughly as √m·|J| while max|J| does not grow at all.
+term. The two diverge as a problem gets denser, because many terms contribute to
+the total while max|J| describes only one of them.
 
-On our 12-node instance the Hamiltonian is dense: every node couples to every
-other, giving 66 terms. Measured values are σ(H) ≈ 3.5 and max|J| ≈ 2.5.
-Scaling by max|J| put the search range at γ ∈ [0, 1.26] when the informative
-region ends near 0.45 — so roughly two thirds of the search budget was spent in
-the over-rotated regime.
+Measured on the current objective, which normalises its dense terms by n:
+
+| nodes | coupling terms | σ(H) | max\|J\| | ratio |
+|---|---|---|---|---|
+| 12 | 66 | 0.743 | 0.314 | 2.4x |
+| 14 | 91 | 0.767 | 0.258 | 3.0x |
+| 16 | 120 | 1.071 | 0.306 | 3.5x |
+
+The ratio grows with problem size, which is what makes max|J| unsafe as a proxy.
+In the implementation the error was compounded by a floor — the range was
+π / max(1, max|J|) — so once normalisation pushed max|J| below 1 the search ran
+out to π regardless, about 1.5x wider than the informative region.
+
+**A correction to an earlier version of this note.** It stated that σ(H) grows as
+√m·|J| for m coupling terms, and quoted σ(H) ≈ 3.5 against max|J| ≈ 2.5 at 12
+nodes. Both need qualifying. The √m relation holds for m *equal-magnitude,
+independent* terms; this objective sums three families with deliberately
+different scalings, and the measured ratio (2–4x) is well below √m (8–11x). The
+quoted figures were also measured before the dense terms were normalised by n,
+so they are not reproducible against current code. The mechanism is unchanged —
+σ(H) is the right scale, max|J| is not — but the magnitude should be measured
+per problem, not estimated.
 
 The measured consequence, approximation ratio by depth:
 
