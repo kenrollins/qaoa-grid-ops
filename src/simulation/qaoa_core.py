@@ -303,10 +303,15 @@ def optimize_qaoa(
     # γ scale is set by the SPREAD of the cost function, not by any single
     # coupling. exp(-iγH) separates basis states by relative phase γ·ΔH, so the
     # useful window is γ ~ 1/σ(H). Scaling by max|J| instead — the intuitive
-    # choice — overshoots by roughly the square root of the term count: on a
-    # dense 12-node problem (66 couplings, σ(H)≈3.5, max|J|≈2.5) it searched
-    # γ up to 1.26 when the informative range ends near 0.45, so most of a
-    # 30-step budget was spent in the over-rotated regime that looks like noise.
+    # choice — overshoots increasingly as the problem gets denser, because many
+    # terms feed σ(H) while max|J| describes one. Measured on the dense 12-node
+    # objective as normalised at the time (66 couplings, σ(H)≈3.5, max|J|≈2.5):
+    # it searched γ up to 1.26 when the informative range ends near 0.45 — 2.8×
+    # too wide — so most of a 30-step budget was spent in the over-rotated
+    # regime that looks like noise. (On today's normalised objective the same
+    # mistake is ~1.5–2×; see the Learn tab's measured σ(H)/max|J| table. It is
+    # NOT √(term count) — that shortcut assumes equal-magnitude independent
+    # terms and this objective's three terms are deliberately scaled apart.)
     sigma = float(xp.std(diag))
     sigma = sigma if sigma > 1e-9 else 1.0
     gamma_hi = float(np.pi / (2.0 * sigma))

@@ -330,8 +330,10 @@ FLOP-bound, and why unified memory on the GB10 matters more than raw compute.
   ratio of <strong>0.135</strong> against p=2's <strong>0.255</strong> — backwards from how the
   algorithm is supposed to behave, on the single slider a knowledgeable visitor reaches for
   first. Cause: γ was scaled by the largest coupling instead of by <strong>σ(H)</strong>, the
-  spread of the cost function. On a dense problem that overshoots by roughly √(term count),
-  so the entire search budget was spent in an over-rotated regime that looks like noise.</p>
+  spread of the cost function. Those come apart as a problem gets denser — measured on this
+  objective the search ran ~3× wider than the informative range (the Learn tab has the
+  measured table) — so most of the budget was spent in an over-rotated regime that looks
+  like noise.</p>
   <p><strong>2. The optimiser reported convergence on the unevolved state.</strong> Runs
   finished, drew a clean curve, and returned an energy exactly equal to the Hamiltonian's
   constant offset — the signature of γ≈0, meaning the cost unitary had done
