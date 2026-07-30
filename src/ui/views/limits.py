@@ -186,8 +186,9 @@ def crossover_figure() -> go.Figure:
                       annotation_font=dict(color=color, size=9))
 
     fig.add_vline(x=50, line=dict(color=COLORS["warn"], width=2))
-    fig.add_annotation(x=50, y=1e9, text="THE CLIFF<br>~50 qubits", showarrow=False,
-                       font=dict(color=COLORS["warn"], size=12), xshift=-52)
+    fig.add_annotation(x=50, y=1e9,
+                       text="EXACT STATEVECTOR<br>ENDS HERE<br>~50 qubits", showarrow=False,
+                       font=dict(color=COLORS["warn"], size=11), xshift=-60)
 
     fig.update_layout(
         template="plotly_dark", paper_bgcolor=COLORS["surface"], plot_bgcolor="#070b12",
@@ -347,14 +348,22 @@ FLOP-bound, and why unified memory on the GB10 matters more than raw compute.
 <div class="callout">
   <div class="h">Read the green line</div>
   <p>A real quantum computer stores 50 qubits <em>in 50 qubits</em>. Writing that same state
-  down classically takes <strong>18 petabytes</strong> — not slow, <strong>impossible</strong>,
-  on any machine that will ever be built. That is the entire reason quantum hardware is worth
-  pursuing, and it is a statement about <em>simulability</em>, not about speed.</p>
-  <p><strong>What this chart does not claim:</strong> that quantum beats classical at solving
-  this grid problem. It does not, today. QAOA has no demonstrated advantage over good
-  classical heuristics on problems like this, and anyone who follows the field knows it. The
-  argument here is different and stronger — it is about <em>where the ability to check your
-  own work runs out</em>.</p>
+  down <strong>exactly</strong> takes <strong>18 petabytes</strong> — beyond any machine that
+  will be built. That is a statement about <em>simulability</em>, not about speed.</p>
+  <p><strong>Two things this chart does not claim.</strong></p>
+  <p><strong>1. Not that quantum beats classical here.</strong> It does not, today. QAOA has
+  no demonstrated advantage over good classical heuristics on problems like this.</p>
+  <p><strong>2. Not that classical simulation stops dead at 50 qubits.</strong> This curve is
+  <em>exact statevector</em> simulation, which is what gives you every amplitude exactly.
+  <strong>Tensor-network methods reach much further on structured circuits</strong> — NVIDIA
+  has simulated 1,688 qubits of MaxCut with cuTensorNet, and noisy QAOA has been sampled at
+  476 qubits. Low-depth QAOA generates little entanglement, and tensor networks exploit
+  exactly that.</p>
+  <p>The catch is what they give back: approximations with fidelity bounds, cheap only while
+  entanglement stays low. Cost climbs steeply with circuit depth and entanglement — which is
+  precisely the regime where quantum advantage would live. <strong>Exact statevector is the
+  gold standard for validating an algorithm; tensor networks are how you reach past it once
+  you already trust it.</strong></p>
 </div>""", unsafe_allow_html=True)
 
     st.markdown("### So what does the money actually buy?")
@@ -401,23 +410,25 @@ devices, as parameter sweeps and noise ensembles genuinely are.</p>""",
     st.markdown("""
 <div class="callout" style="border-left-color:var(--accent);
      background:rgba(0,200,255,.05);border-color:rgba(0,200,255,.3)">
-  <div class="h" style="color:var(--accent)">Because the ability to check your work expires</div>
-  <p>Right now, a 20-qubit algorithm can be brute-forced and <strong>proved</strong> correct.
-  A 33-qubit one can be simulated exactly. That is a window, and it is closing from the far
-  side: as real devices grow past ~50 qubits, <strong>nothing classical can verify them any
-  more</strong>. You will be running algorithms whose answers cannot be independently checked.</p>
-  <p>Every encoding, every error-mitigation strategy, every ansatz choice you want to trust on
-  a future 100-qubit device has to be developed and validated <em>in the regime where ground
-  truth still exists</em>. That regime is today, and it is finite.</p>
-  <p>The organisations that wait for useful QPUs will start their algorithm work at the exact
-  moment verification becomes impossible. The ones building now will already know which
-  approaches survive noise, which encodings fit real connectivity, and which optimisers do
-  not silently stall — because they will have watched them fail somewhere it could still be
-  measured.</p>
-  <p><strong>This project is a worked example of that.</strong> Two algorithm failures were
-  caught here only because brute force was still affordable: a deeper circuit scoring worse
-  than a shallow one, and an optimiser reporting convergence while returning an unevolved
-  state. Above ~20 qubits, both would have been invisible and both would have been believed.</p>
+  <div class="h" style="color:var(--accent)">Because above the frontier, every failure looks the same</div>
+  <p>Below the simulation frontier you <strong>know the right answer</strong>. So when a result
+  looks wrong, you can tell which of three things went wrong: your <strong>algorithm</strong>,
+  the hardware's <strong>noise</strong>, or simply <strong>not enough shots</strong>.</p>
+  <p>Above it you have only your answer — and all three failure modes are indistinguishable.
+  You cannot calibrate an error-mitigation strategy without a noiseless reference to calibrate
+  against. You cannot tell a barren plateau from a bad Hamiltonian encoding. The computation
+  still runs; what you lose is the ability to say <em>why</em> it did what it did.</p>
+  <p>(To be precise: solution <em>checking</em> stays cheap forever for optimisation — the
+  objective value of a returned answer is trivial to compute at any scale. What goes away is
+  proving optimality, and attributing error.)</p>
+  <p>And the frontier moves slowly. Exact simulation gains roughly <strong>one qubit per
+  doubling of memory</strong> — a matter of years. Quantum hardware has been adding qubits far
+  faster than that. The gap does not close; it widens structurally.</p>
+  <p><strong>This project is a worked example.</strong> Two algorithm failures were caught here
+  only because brute force was still affordable: a deeper circuit scoring worse than a shallow
+  one, and an optimiser reporting convergence while returning an unevolved state. Neither
+  announced itself. On hardware, above the frontier, both would have looked like noise — and
+  both would have been believed.</p>
 </div>""", unsafe_allow_html=True)
 
     st.markdown("### What this means for the architecture")
