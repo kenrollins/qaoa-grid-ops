@@ -7,7 +7,7 @@ statevector lives on the GB10.
 
 Three backends, in preference order:
 
-  gb10   — HTTP to the cuStateVec service on the GB10 (10.0.13.200:8600).
+  gb10   — HTTP to the GPU simulation service on the GB10 (CuPy / CUDA).
            THE product path. Blackwell + 128 GB unified memory.
   local  — CuPy in-process if this host has a usable GPU, else NumPy.
            A convenience for iterating when the GB10 is busy. NOT the story.

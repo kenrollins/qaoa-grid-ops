@@ -57,8 +57,12 @@ def one_line_diagram(
     fig = go.Figure()
 
     # ── Lines, grouped by state so the legend stays readable ────────────────
+    # Iterate highest voltage first so the legend reads as a monotonic ladder
+    # (345 / 230 / 138 / 115). Insertion order otherwise follows the edge list,
+    # which produced "115 / 230 / 138 / 345" — a voltage ladder out of order.
     seen_kv: set[int] = set()
-    for u, v in g.edges():
+    ordered_edges = sorted(g.edges(), key=lambda e: -g.edges[e].get("kv", 0))
+    for u, v in ordered_edges:
         e = g.edges[u, v]
         x0, y0 = g.nodes[u]["x"], g.nodes[u]["y"]
         x1, y1 = g.nodes[v]["x"], g.nodes[v]["y"]

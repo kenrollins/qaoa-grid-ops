@@ -8,8 +8,9 @@ keeps the domain model in one place and this process purely computational.
 WHY THIS EXISTS AS A SERVICE, and not as `import qiskit_aer` in the UI:
 `qiskit-aer-gpu` publishes x86_64 wheels ONLY. There is no aarch64 build, so it
 cannot be installed on the GB10 at all. The GPU path on Grace Blackwell runs
-through CuPy + cuQuantum's own cuStateVec bindings, both of which do ship
-aarch64 wheels. Splitting the UI from the compute is therefore not an
+through CuPy, which does ship aarch64 wheels. (cuQuantum's cuStateVec also
+ships aarch64 and is installed here, but the kernels below are CuPy today --
+see PLAN.md M3.) Splitting the UI from the compute is therefore not an
 architectural preference — it is the only way to put this workload on a GB10.
 
 Run:
@@ -128,7 +129,7 @@ class EquivalenceRequest(BaseModel):
 def health() -> dict:
     st = _device_state()
     st["service"] = "gridops-qsim"
-    st["detail"] = st.get("detail", "cuStateVec via cuquantum-python + CuPy")
+    st["detail"] = st.get("detail", "CuPy / CUDA statevector kernels on Blackwell")
     return st
 
 

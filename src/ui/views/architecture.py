@@ -28,7 +28,7 @@ def render(backend: dict) -> None:
 <div class="flow">┌─ xr7620 ──────────────────────────┐         ┌─ Dell Pro Max GB10 ───────────────┐
 │  Grid Ops Command Center          │         │  gridops-qsim  (FastAPI :8600)    │
 │                                   │         │                                   │
-│  Streamlit + Plotly       :8501   │  VLAN13 │  cuStateVec  (cuQuantum)          │
+│  Streamlit + Plotly       :8501   │  VLAN13 │  CuPy / CUDA statevector kernels  │
 │  grid model → QUBO → Ising        │◄──HTTP─►│  CuPy / CUDA 12                   │
 │  backend probe · run orchestration│  JSON   │  aarch64 · Blackwell sm_121       │
 │  topology · convergence · export  │         │  {total_gb:>5.0f} GiB unified memory        │
@@ -44,7 +44,7 @@ def render(backend: dict) -> None:
   <p><strong>qiskit-aer-gpu publishes x86_64 wheels only.</strong> There is no aarch64 build,
   so Qiskit's GPU simulator <strong>cannot be installed on the GB10 at all</strong>.
   cuQuantum <em>does</em> ship aarch64 wheels, so the GPU path on Grace Blackwell is
-  cuStateVec via CuPy.</p>
+  CuPy on CUDA.</p>
   <p>Running the quantum simulation on the GB10 therefore <em>requires</em> separating it
   from a UI that runs elsewhere. This diagram is what the hardware permits, not a preference.</p>
 </div>""", unsafe_allow_html=True)
@@ -69,13 +69,17 @@ outer loop (SciPy COBYLA) tunes the (γ, β) schedule.</div>
 <div class="tech">NumPy · SciPy · shared NumPy/CuPy kernel code</div></div>
 
 <div class="layer"><div class="tier">Layer 3 — Hardware Acceleration</div>
-<div class="name">NVIDIA cuQuantum · cuStateVec</div>
-<div class="desc">Dense statevector evolution over 2<sup>n</sup> complex amplitudes. Because
-the cost Hamiltonian is diagonal, the cost unitary is applied as a single elementwise phase
-multiply rather than thousands of individual RZZ gates, and ⟨H⟩ is computed
-<strong>exactly</strong> — no shot sampling, no estimator noise. Memory-tiled throughout so
-scratch stays bounded as the statevector grows.</div>
-<div class="tech">cuquantum-python-cu12 · cupy-cuda12x · CUDA 12</div></div>
+<div class="name">NVIDIA CUDA · CuPy statevector kernels</div>
+<div class="desc">Dense statevector evolution over 2<sup>n</sup> complex amplitudes, executed
+as CUDA kernels on the GPU — the state lives in GPU memory and never returns to the host
+during a run. Because the cost Hamiltonian is diagonal, the cost unitary is applied as a single
+elementwise phase multiply rather than thousands of individual RZZ gates, and ⟨H⟩ is computed
+<strong>exactly</strong>. Memory-tiled throughout so scratch stays bounded as the statevector grows.
+<br><br><strong>Honest note:</strong> these are <strong>CuPy</strong> kernels — general-purpose GPU
+array operations — not NVIDIA's specialised <strong>cuStateVec</strong> quantum kernels. cuQuantum
+is installed and the integration hook exists, but it is not yet on the execution path. Measured
+headroom from closing that gap is roughly 12x at 30 qubits (PLAN.md M3).</div>
+<div class="tech">cupy-cuda12x · CUDA 12 · cuQuantum installed, not yet on the execution path</div></div>
 
 <div class="layer hw"><div class="tier">Layer 4 — Dell Infrastructure Backbone</div>
 <div class="name">Dell Pro Max with GB10 — Grace Blackwell</div>

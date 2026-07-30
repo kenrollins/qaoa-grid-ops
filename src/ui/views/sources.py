@@ -150,11 +150,11 @@ def render() -> None:
 
     st.markdown("### Built on")
     st.markdown(
-        _src("NVIDIA cuQuantum — cuStateVec",
+        _src("NVIDIA CuPy and cuQuantum",
              "https://docs.nvidia.com/cuda/cuquantum/",
              "GPU-accelerated libraries for quantum circuit simulation. cuStateVec handles "
              "statevector operations; cuTensorNet handles tensor-network contraction.",
-             "The GB10 compute service runs on <code>cuquantum-python-cu12</code> plus CuPy. "
+             "The GB10 compute service executes its statevector kernels in <code>CuPy</code> — general-purpose GPU array operations on CUDA. cuQuantum/cuStateVec is installed and is the intended path for the specialised kernels, but does <b>not</b> currently execute (PLAN.md M3). "
              "This was <b>forced, not chosen</b>: <code>qiskit-aer-gpu</code> ships x86_64 "
              "wheels only and cannot be installed on the GB10's aarch64 silicon at all, which "
              "is why simulation is a separate service from the UI.",
