@@ -24,9 +24,12 @@ from src.ui import components as ui
 
 # Measured on this lab's hardware. Dated because hardware claims rot.
 GB10_MEASURED = [  # (qubits, seconds per energy evaluation, p=2, dense all-to-all)
-    (24, 0.67), (26, 2.6), (28, 11.6), (30, 50.0),
+    (24, 0.158), (26, 0.654), (28, 2.778), (30, 11.983),
 ]
-MEASURED_NOTE = "measured on the Dell Pro Max GB10, 2026-07-29, p=2 dense all-to-all"
+MEASURED_NOTE = ("measured on the Dell Pro Max GB10, 2026-07-30, p=2 dense all-to-all, "
+                 "cuStateVec kernels")
+# Prior CuPy-only figures, kept so the improvement is checkable rather than asserted:
+# 24q 0.67s, 26q 2.60s, 28q 11.60s, 30q 50.0s — a consistent 4.0-4.2x.
 
 # Reference points for the wall chart.
 #

@@ -29,6 +29,7 @@ sys.path.insert(0, os.getenv("GRIDOPS_ROOT", "/opt/gridops"))
 from fastapi import FastAPI, HTTPException  # noqa: E402
 from pydantic import BaseModel, Field  # noqa: E402
 
+from src.simulation import custatevec_backend as csv_backend  # noqa: E402
 from src.simulation import noise as nz  # noqa: E402
 from src.simulation import qaoa_core  # noqa: E402
 
@@ -129,7 +130,11 @@ class EquivalenceRequest(BaseModel):
 def health() -> dict:
     st = _device_state()
     st["service"] = "gridops-qsim"
-    st["detail"] = st.get("detail", "CuPy / CUDA statevector kernels on Blackwell")
+    probe = csv_backend.probe()
+    st["custatevec"] = probe
+    st["detail"] = (f"cuStateVec {probe['version']} kernels on Blackwell"
+                    if probe["available"] else
+                    "CuPy / CUDA kernels on Blackwell (cuStateVec unavailable)")
     return st
 
 
@@ -138,6 +143,8 @@ def optimize(req: OptimizeRequest) -> dict:
     """Full QAOA parameter optimization. Returns the answer and the path to it."""
     _guard(req.n_qubits)
     cp = _cupy()
+    # One cuStateVec handle for the whole run; creating one per gate is costly.
+    ctx = csv_backend.open_context(req.n_qubits)
     try:
         res = qaoa_core.optimize_qaoa(
             n_qubits=req.n_qubits,
@@ -149,10 +156,13 @@ def optimize(req: OptimizeRequest) -> dict:
             seed=req.seed,
             mode=req.mode,
             top_k=req.top_k,
+            custatevec_ctx=ctx,
         )
     except cp.cuda.memory.OutOfMemoryError as exc:
         raise HTTPException(507, f"GPU out of memory: {exc}") from exc
     finally:
+        if ctx is not None:
+            ctx.close()
         cp.get_default_memory_pool().free_all_blocks()
 
     d = res.to_dict()
@@ -160,6 +170,9 @@ def optimize(req: OptimizeRequest) -> dict:
     d["backend"] = "gb10"
     d["device"] = st.get("device", "NVIDIA GB10")
     d["compute_capability"] = st.get("compute_capability", "")
+    # Report the path that ACTUALLY executed, never the one we hoped for.
+    d["kernels"] = "cuStateVec" if ctx is not None else "CuPy"
+    d["custatevec_gate_calls"] = getattr(ctx, "gate_calls", 0) if ctx else 0
     d["top_states"] = [(s["bitstring"], s["probability"]) for s in d["top_states"]]
     return d
 

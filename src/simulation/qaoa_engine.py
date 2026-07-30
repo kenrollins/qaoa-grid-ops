@@ -330,6 +330,16 @@ def run_islanding_optimization(
             backend = probe_local()
             result = _run_local(payload, backend)
     else:
+        # The GB10 was asked for and is not answering. Say so loudly: a run that
+        # silently executes elsewhere while the UI reports GB10 is exactly the
+        # kind of unearned claim this project exists to avoid.
+        if backend.name == "gb10":
+            warnings.append(
+                f"GB10 requested but unreachable at {GB10_QSIM_URL} — this run executed "
+                "LOCALLY. Numbers are correct; any statement about GB10 hardware, "
+                "cuStateVec kernels, or measured ceilings does NOT apply to it."
+            )
+        backend = probe_local()
         result = _run_local(payload, backend)
 
     # ── Physics-aware post-selection ─────────────────────────────────────────
@@ -476,8 +486,12 @@ def _run_local(payload: dict, backend: BackendInfo) -> dict:
         mode=payload.get("mode", "diagonal"),
     )
     d = res.to_dict()
+    # Report what ACTUALLY ran. `backend.name` here is always a local probe
+    # result; labelling a local run "gb10" because that is what was requested
+    # made the UI claim hardware that never executed.
     d["backend"] = backend.name
     d["device"] = backend.device
+    d["kernels"] = "CuPy" if backend.name == "local-gpu" else "NumPy (CPU)"
     d["top_states"] = [(s["bitstring"], s["probability"]) for s in d["top_states"]]
     return d
 

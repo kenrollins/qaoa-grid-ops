@@ -66,7 +66,23 @@ and it is misaligned in a specific, fixable way:
 - [ ] Score directly on MW served, not on the Hamiltonian, when comparing runs.
 - [ ] Sweep weights per grid size — the best weights may not be size-invariant.
 
-## M3 — Performance headroom (real, and quantified)
+## M3 — Performance headroom ✅ LARGELY DONE (2026-07-30)
+
+- [x] **cuStateVec is now the execution path.** `custatevec_backend.py` wraps
+      NVIDIA's kernels; the mixer runs through `applyMatrix`. Measured **4.0-4.2x**
+      end to end at 20-28 qubits, agreeing with the CuPy path to ~1e-18.
+      **30 qubits: 50 s → 12.0 s per evaluation.**
+- [x] Verified the diagonal is NOT worth routing through cuStateVec: 4.18x vs
+      4.17x, while costing an extra 2^n complex array (16 GB at 30 qubits).
+      Mixer on cuStateVec, diagonal tiled in CuPy — full speed, full ceiling.
+- **Correction to this plan's own estimate.** It predicted ~12x from bandwidth
+      arithmetic (62 passes over 16 GB ≈ 1 TB at ~270 GB/s). Measured is 4.2x.
+      The estimate assumed the CuPy path was purely bandwidth-bound; the real
+      gap was kernel efficiency and temporaries, and 4.2x is what closing it is
+      worth. The remaining ~3x against the bandwidth bound is unexplained and
+      would need profiling to attribute.
+
+## M3b — Remaining performance work
 
 At 30 qubits, one energy evaluation takes 50 s. Rough bandwidth math says it
 should be closer to **4 s**: p=2 gives 2·(1+30) = 62 passes over a 16 GB
