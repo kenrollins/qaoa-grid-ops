@@ -605,6 +605,20 @@ def run_realism(model: IsingModel, gammas, betas, shots: int = 2048,
     if backend.name == "local-gpu":
         import cupy as cp
         xp = cp
+    # The GB10 service enforces its noisy ceiling server-side; the local path
+    # must do the same or a 15+ qubit request allocates a 17 GB-and-up density
+    # matrix in this process — on an overcommitting host that is swap death or
+    # the OOM killer, not a clean MemoryError.
+    ceiling = nz.max_noisy_qubits(backend.free_memory_bytes or 2**33)
+    if model.n_qubits > ceiling:
+        return {
+            "error": (
+                f"{model.n_qubits} qubits needs a density matrix of "
+                f"{nz.density_matrix_bytes(model.n_qubits) / 2**30:.1f} GiB; the "
+                f"noisy ceiling on this backend is {ceiling} qubits. This IS the "
+                "wall — reduce the grid size to compare all three regimes."),
+            "backend": backend.name,
+        }
     res = nz.compare_realism(
         model.n_qubits, [(i, j, v) for i, j, v in payload["couplings"]],
         model.offset, gammas, betas, shots=shots, depolarizing=depolarizing, xp=xp)
