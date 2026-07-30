@@ -1,6 +1,7 @@
 # PROGRESS — Fable review checkpoint ledger
 
-Read this first to see where the run got to.
+Read this first to see where the run got to. **All five phases completed.**
+Next reader: start at `04-handoff-queue.md`.
 
 | Phase | Status | Notes |
 |---|---|---|
@@ -8,9 +9,9 @@ Read this first to see where the run got to.
 
 | 1 — Claim accuracy | DONE | F-01…F-12; 8 fixes committed (SHAs in findings file) |
 | 2 — Correctness | DONE | F-13…F-16 applied; physics audited sound; test plan written |
-| 3 — Design & visual | NOT STARTED | |
-| 4 — Architecture | NOT STARTED | |
-| 5 — Handoff | NOT STARTED | |
+| 3 — Design & visual | DONE | 02-design-assessment.md, D-01…D-19 + sprint order; F-17 (dead ENERGISE cue) committed e98f5a3 |
+| 4 — Architecture | DONE | 03-architecture-assessment.md, A-01…A-08 (engine split plan, cuStateVec gap, perf leads) |
+| 5 — Handoff | DONE | 04-handoff-queue.md — start there; 3 tiers, commit index, verification ritual |
 
 ## Baseline (fill in Phase 0)
 - Branch: `fable/review-2026-07-30` (from `main` @ c6d58c8)
@@ -32,4 +33,5 @@ _(append one line per finding flushed or commit landed)_
   1c4cfe2 unused code · 30ed0cd pyproject/ruff (180→28) · 5f89811 F-14 realism
   guard · 634043f F-15 server comment · c8a8a5c F-16 depolarize closed form
   (verified 1.1e-16 vs old).
+- 2026-07-30: Phase 3 done — 02-design-assessment.md written (IA restructure to 4 URL pages, quantum/learn merge table, one-line-diagram execution findings, accessibility pass, narration review). One more code commit found during the pass: e98f5a3 removes the step-① cue for the ENERGISE button deleted in 087789d (F-17).
 - 2026-07-30: Phase 2 done — power_flow physics verified numerically (nodal balance ≤1e-6, islands==components, intact 59.2% matches the 59% design claim), bit conventions round-trip, noise module verified (trace, Hermiticity, purity, noiseless≡statevector). Five-file test plan written into 01-code-findings.md, each test mapped to a real historical bug. REPORTED (not applied): F-08 spectral-baseline weight basis (invalidates recorded sweep), F-09 GB/GiB, F-10/F-11/F-12 nits.
