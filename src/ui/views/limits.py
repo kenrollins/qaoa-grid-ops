@@ -15,6 +15,8 @@ figures are labelled as arithmetic, because 2^n needs no measurement.
 
 from __future__ import annotations
 
+import math
+
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -33,16 +35,38 @@ MEASURED_NOTE = ("measured on the Dell Pro Max GB10, 2026-07-30, p=2 dense all-t
 
 # Reference points for the wall chart.
 #
-# Capacities are aggregate high-bandwidth memory for the configuration; the qubit
-# numbers are ARITHMETIC from those capacities (2^n·16 B), not vendor performance
-# claims. VERIFY THE CONFIGURATIONS before this is shown to a customer — the
-# curve is exact, the hardware line-up is the part that dates.
+# Sourced from the Dell PowerEdge sourcebooks and GPU Qualification Matrix
+# (2026-07-30). The figure that matters for state-vector simulation is the
+# LARGEST COHERENT MEMORY DOMAIN, not the box's total GPU memory — a state
+# vector must live in one address space because every gate touches all of it.
+#
+# The qubit numbers are arithmetic from those capacities (2^n x 16 bytes).
 TIERS = [
-    ("Dell Pro Max · GB10 · 128 GB unified", 128 * 2**30, COLORS["accent"]),
-    ("Dell PowerEdge XE9680 · 8× H200 · 1.1 TB", 1.1 * 2**40, COLORS["island_b"]),
-    ("Dell PowerEdge XE9680 · 8× B200 · 1.5 TB", 1.5 * 2**40, COLORS["ok"]),
-    ("GB200 NVL72 · 13.4 TB · one NVLink domain", 13.4 * 2**40, COLORS["warn"]),
-    ("Multi-rack AI Factory · ~100 TB", 100 * 2**40, COLORS["crit"]),
+    ("Dell Pro Max GB10 · 128 GB unified", 128 * 2**30, COLORS["accent"]),
+    ("XE7745 · RTX PRO 6000 · 96 GB/GPU, PCIe", 96 * 2**30, COLORS["text_dim"]),
+    ("XE7745 · H200 NVL4 · 564 GB domain", 564 * 2**30, COLORS["island_b"]),
+    ("XE9780 · HGX B300 NVL8 · 2.16 TB", 2160 * 2**30, COLORS["ok"]),
+    ("XE9712 · GB300 NVL72 · 20.7 TB", 20736 * 2**30, COLORS["warn"]),
+]
+
+# (platform, coherent-domain description, domain bytes, independent domains)
+DELL_PLATFORMS = [
+    ("Dell Pro Max · GB10", "unified memory", 128 * 2**30, 1,
+     "measured here: 30 clean / 14 noisy"),
+    ("XE7745/7740 · 8x RTX PRO 6000 BSE", "1 GPU — no NVLink documented",
+     96 * 2**30, 8, "PCIe Gen5 x16, 128 GB/s between GPUs"),
+    ("XE7740 · 8x H100 NVL", "2-GPU NVL2 pairs", 188 * 2**30, 4,
+     "NVLink 4th gen, 900 GB/s in-domain"),
+    ("XE7745 · 8x H200 NVL", "4-GPU NVL4 islands", 564 * 2**30, 2,
+     "NVLink 4th gen, 900 GB/s in-domain"),
+    ("XE9780 · 8x HGX B200", "8-GPU NVSwitch", 1440 * 2**30, 1,
+     "single 8-GPU baseboard"),
+    ("XE9780/9785 · 8x HGX B300 NVL8", "8-GPU NVSwitch", 2160 * 2**30, 1,
+     "270 GB per GPU per Dell platform docs"),
+    ("XE9785 · 8x AMD MI355X", "8-GPU Infinity Fabric", 2304 * 2**30, 1,
+     "288 GB per GPU"),
+    ("XE9712 · GB300 NVL72", "72-GPU unified pool", 20736 * 2**30, 1,
+     "NVLink 1.8 TB/s, rack scale"),
 ]
 
 
@@ -131,11 +155,12 @@ SECONDS_PER_EVAL_30Q = 50.0
 STUDY_EVALS = 30_000          # 1,000 candidate configurations x ~30 optimizer steps
 
 TIER_VALUE = [
-    # (name, devices, clean qubits, noisy qubits)
-    ("Developer workstation<br><span class='sub'>Dell Pro Max · GB10</span>", 1, 33, 16),
-    ("Single node<br><span class='sub'>PowerEdge XE9680 · 8× B200</span>", 8, 36, 18),
-    ("Rack<br><span class='sub'>GB200 NVL72</span>", 72, 39, 19),
-    ("Multi-rack AI Factory<br><span class='sub'>~8 racks</span>", 576, 42, 21),
+    # (name, parallel devices, clean qubits, noisy-exact qubits)
+    ("Developer workstation<br><span class='sub'>Dell Pro Max · GB10</span>", 1, 30, 14),
+    ("Dense PCIe node<br><span class='sub'>XE7745 · 8x RTX PRO 6000</span>", 8, 32, 16),
+    ("NVLink island node<br><span class='sub'>XE7745 · 8x H200 NVL4</span>", 8, 35, 17),
+    ("HGX node<br><span class='sub'>XE9780 · 8x B300 NVL8</span>", 8, 37, 18),
+    ("Rack scale<br><span class='sub'>XE9712 · GB300 NVL72</span>", 72, 40, 20),
 ]
 
 
@@ -494,6 +519,87 @@ devices, as parameter sweeps and noise ensembles genuinely are.</p>""",
   one, and an optimiser reporting convergence while returning an unevolved state. Neither
   announced itself. On hardware, above the frontier, both would have looked like noise — and
   both would have been believed.</p>
+</div>""", unsafe_allow_html=True)
+
+    st.markdown("### Four methods, four different machines")
+    st.markdown("""
+There is no single "best platform" for this workload, because there is no single
+method. Each way of simulating a quantum circuit stresses a different part of the
+machine — and the ranking **inverts** depending on which one you are running.
+""")
+    st.markdown("""
+<table class="spec buys">
+  <tr><th>Method</th><th>What it computes</th><th>Binding constraint</th><th>Wants</th></tr>
+  <tr><td><b>Exact state vector</b><br><span class="sub">implemented here</span></td>
+      <td>The ideal circuit, every amplitude exactly</td>
+      <td class="v">Largest <b>coherent</b> memory domain — 2<sup>n</sup>, and every gate
+          touches all of it</td>
+      <td class="v">One big NVLink domain</td></tr>
+  <tr><td><b>Density matrix</b><br><span class="sub">implemented here</span></td>
+      <td>Noise, exactly — every outcome and its probability</td>
+      <td class="v">Same domain, but <b>2<sup>2n</sup></b>. Halves the qubits.</td>
+      <td class="v">The biggest domain you can buy</td></tr>
+  <tr><td><b>Trajectories</b><br><span class="sub">implemented here</span></td>
+      <td>Noise, approximately — many random runs averaged</td>
+      <td class="v"><b>GPU count.</b> Each run is one state vector on one GPU.</td>
+      <td class="v">Many independent GPUs</td></tr>
+  <tr><td><b>Tensor networks</b><br><span class="sub">not implemented — see Sources</span></td>
+      <td>Structured, low-entanglement circuits</td>
+      <td class="v">Entanglement, not qubit count. Reaches 1,000+ qubits when
+          entanglement stays low; blows up when it does not.</td>
+      <td class="v">Depends entirely on the circuit</td></tr>
+</table>""", unsafe_allow_html=True)
+
+    st.markdown("""
+<div class="callout">
+  <div class="h">The inversion, in one example</div>
+  <p>Take the <b>XE7745 with 8x RTX PRO 6000</b>. Dell documents no NVLink for that GPU on
+  that platform — it is eight separate PCIe devices at 128 GB/s between them. On the
+  coherent-domain metric it is the <b>weakest</b> box in the portfolio: 96 GB, about
+  <b>32 qubits</b>, no better than a single card.</p>
+  <p>Now run trajectory-based noise instead. Each run is an independent state vector that
+  fits on one GPU, so that same box is <b>eight simultaneous 32-qubit noisy workers</b> —
+  and noisy simulation at scale is exactly the study that eats thousands of runs. For that
+  job it beats a single NVLink island outright.</p>
+  <p><b>The worst platform for one method is among the best for another.</b> Anyone sizing
+  this by "largest GPU memory" alone will buy the wrong machine roughly half the time.</p>
+</div>""", unsafe_allow_html=True)
+
+    st.markdown("#### The Dell portfolio, by coherent domain")
+    rows = []
+    for name, dom, b, ndom, note in DELL_PLATFORMS:
+        gb = b / 2**30
+        mem = f"{gb/1024:.2f} TB" if gb >= 1024 else f"{gb:.0f} GB"
+        q = int(math.log2(b / 16))
+        rows.append(
+            f"<tr><td>{name}</td><td class='v'>{dom}</td><td class='v'>{mem}</td>"
+            f"<td class='v'><b>{q}</b></td><td class='v'>{q // 2}</td>"
+            f"<td class='v'>{ndom}</td><td class='v'><span class='sub'>{note}</span></td></tr>")
+    st.markdown(f"""
+<table class="spec buys">
+  <tr><th>Platform</th><th>Largest coherent domain</th><th>Domain memory</th>
+      <th>Clean qubits</th><th>Noisy (exact)</th><th>Independent domains</th><th>Notes</th></tr>
+  {''.join(rows)}
+</table>
+<p class="fine">Domain capacities from Dell PowerEdge sourcebooks and the GPU Qualification
+Matrix (2026-07-30). Qubit figures are arithmetic from those capacities. The GB10 row shows
+its <b>measured</b> ceilings, which are lower than arithmetic because free memory is shared
+with whatever else is resident. <b>Independent domains</b> is how many separate problems the
+box can run at once — the trajectory axis.</p>""", unsafe_allow_html=True)
+
+    st.markdown("""
+<div class="callout">
+  <div class="h">Why "total GPU memory" is the wrong number</div>
+  <p>A state vector cannot be split across a slow link. Every gate acting on a high-order
+  qubit needs an all-to-all exchange, so the simulation runs at the speed of the <em>worst</em>
+  link in the domain. Inside an NVLink domain that is 900 GB/s; across PCIe Gen5 x16 it is
+  128 GB/s — a <b>7x</b> cliff.</p>
+  <p>So the honest capacity of a box is the largest domain it can form, not the sum of its
+  GPUs. An 8x RTX PRO 6000 node holds 768 GB of GPU memory and can simulate
+  <b>32 qubits</b>; a 4-GPU H200 NVL island holds 564 GB and simulates <b>35</b>. Less total
+  memory, three more qubits, because the memory is coherent.</p>
+  <p>The practical breakpoints in this portfolio: <b>2 GPUs</b> (H100 NVL), <b>4 GPUs</b>
+  (H200 NVL), <b>8 GPUs</b> (HGX B300 NVL8), then <b>72</b> (GB300 NVL72).</p>
 </div>""", unsafe_allow_html=True)
 
     st.markdown("### What this means for the architecture")

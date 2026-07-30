@@ -148,6 +148,23 @@ def render() -> None:
              "voltage-class colours"),
         unsafe_allow_html=True)
 
+    st.markdown("### Hardware sizing")
+    st.markdown(
+        _src("Dell PowerEdge sourcebooks and GPU Qualification Matrix",
+             "https://www.dell.com/en-us/lp/dt/nvidia-ai",
+             "Per-platform GPU topology for the PowerEdge XE line: which GPUs can form an "
+             "NVLink domain, how large that domain is, per-GPU memory, and the in-domain "
+             "versus off-domain interconnect bandwidth.",
+             "Every hardware figure on the <b>Under the Hood</b> tab comes from here. It also "
+             "<b>corrected a working assumption we had wrong</b>: we believed the RTX PRO 6000 "
+             "Blackwell in an XE7745 could be NVLinked as two 4-GPU domains of 384 GB. Dell "
+             "documents no NVLink for that GPU on that platform — it is eight separate PCIe "
+             "Gen5 devices at 128 GB/s, so the coherent domain is one GPU at 96 GB. The 4-GPU "
+             "domain does exist on that chassis, but with <b>H200 NVL</b> at 564 GB. Our "
+             "qubit ceilings moved accordingly.",
+             "corrected our claim"),
+        unsafe_allow_html=True)
+
     st.markdown("### Built on")
     st.markdown(
         _src("NVIDIA CuPy and cuQuantum",
