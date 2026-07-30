@@ -171,7 +171,10 @@ no third-party API, no egress.</div>
         ("26 qubits", "1.0 GB · 2.6 s"),
         ("28 qubits", "4.0 GB · 11.6 s"),
         ("30 qubits", "<strong>16 GB</strong> · 50 s — capability ceiling, not interactive"),
-        ("Interactive range", "6–24 qubits — a full 30-step optimization in ~0.1–0.7 s"),
+        ("Interactive range", "6–24 qubits — 0.67 s or less per energy evaluation; "
+                              "a full 30-step optimization is ~20 s at 24 qubits "
+                              "(arithmetic from the measured rate), sub-second per "
+                              "step below ~20 qubits"),
         ("Correctness", "QAOA returns the <strong>exact optimum</strong> at p=1/2/4, "
                         "verified by brute force"),
         ("Known headroom", "~12x is left on the floor at 30 qubits vs. bandwidth-bound "
