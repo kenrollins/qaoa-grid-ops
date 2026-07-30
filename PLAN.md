@@ -94,11 +94,15 @@ statevector ≈ 1 TB of traffic, and the GB10's unified memory does ~270 GB/s.
 - [x] Caddy route + Authentik passkey app; external path verified **302 + real
       Let's Encrypt cert** through the lighthouse.
 - [x] Linked from the portal Demo Floor, with live GB10 state via `/api/gridops`.
-- [ ] ⚠ **OPERATOR STEP OUTSTANDING** — Unbound override
-      `qaoa-grid-ops.lab.kenrollins.dev` → `10.0.13.3` (**specific host, never a
-      wildcard** — OPNsense #8051 breaks Unbound LAN-wide). Until then the name
-      resolves internally to the *public* lighthouse address and LAN traffic
-      hairpins out and back instead of going straight to Caddy.
+- [x] Unbound override applied by the operator — `qaoa-grid-ops.lab.kenrollins.dev`
+      → `10.0.13.3`, confirmed straight from Unbound at `10.0.13.1`.
+- [x] **Fixed a 502 that only an authenticated user could trigger.** The Caddy
+      route still dialed the generator's placeholder `:8080`: `sed -i` had written
+      a new inode, and Docker bind-mounts a single file BY inode, so the container
+      kept reading the orphaned original while the host showed `:8501`. Anonymous
+      `curl` had "verified" it as 302 — but forward-auth answers BEFORE the
+      upstream is dialed, so that check could never have caught it. See
+      `/data/code/dmz/ONBOARDING.md`.
 - [ ] Expose `/metrics` for Prometheus (`10.0.13.203`).
 - [ ] The minted gateway key in `/data/docker/qaoa-grid-ops/.env` is **unused** —
       this demo makes no inference calls. Harmless, but don't let it imply one.
