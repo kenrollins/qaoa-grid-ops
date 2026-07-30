@@ -1,0 +1,36 @@
+# Lint configuration only — this project is deployed by running app.py and the
+# GB10 service directly, not installed as a package.
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E4", "E7", "E9",   # pycodestyle errors
+    "F",                # pyflakes — unused imports/vars, undefined names
+    "B",                # bugbear — real bug patterns
+    "C4",               # comprehensions
+    "UP",               # pyupgrade
+    "RUF",              # ruff-native checks
+    "S110",             # try/except/pass (each existing one is deliberate; keep visible)
+]
+ignore = [
+    # dict(...) inside Plotly figure specs is idiomatic Plotly and far more
+    # readable than nested literals. 123 hits, all noise. Triage: the review
+    # seed doc (docs/fable-review/00-seed-findings.md).
+    "C408",
+    # Implicit string concatenation inside collections — cosmetic here.
+    "ISC001", "ISC002", "ISC003",
+    # En-dashes, arrows, Greek letters and box-drawing in comments/strings are
+    # deliberate typography — this project's prose is content (102 hits).
+    "RUF001", "RUF002", "RUF003",
+    # Long prose lines in UI copy are content, not code style.
+    "E501",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Backend probing must not raise — blind excepts there are deliberate and
+# documented in situ (probe_local, probe_gb10, _device_state).
+"src/simulation/qaoa_engine.py" = ["BLE001", "S110"]
+"services/gb10_qsim/server.py" = ["BLE001"]
