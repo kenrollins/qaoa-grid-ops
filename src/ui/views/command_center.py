@@ -13,6 +13,7 @@ from src.simulation import power_flow as pf
 from src.simulation.qaoa_engine import scaling_probe, verify_fast_path
 from src.ui import components as ui
 from src.ui import control_room as cr
+from src.ui.views import limits as limits_view
 from src.ui.views import quantum as quantum_view
 
 
@@ -58,16 +59,38 @@ def render(spec, backend: dict, layers: int, pref: str,
     # ── Tab 1 — the result ───────────────────────────────────────────────────
     with tab1:
         if run is None:
-            g0 = apply_fault(grid if grid is not None else build_grid(spec), fault)
+            # The landing state gets the SAME control-room treatment as a solved
+            # run. Previously this branch fell back to a plain graph, so anyone
+            # who had not yet pressed Run — i.e. everyone arriving at the page —
+            # saw none of the instrumentation and concluded nothing had changed.
+            base0 = pf.calibrate_ratings(grid if grid is not None else build_grid(spec))
+            g0 = apply_fault(base0, fault)
+            sol0 = pf.solve(g0)
+            risk0 = pf.cascade_risk(sol0)
+
             if fault:
-                lines = ", ".join(f"{g0.nodes[u]['name']} ↔ {g0.nodes[v]['name']} "
-                                  f"({g0.edges[u, v]['flow_mw']:.0f} MW)" for u, v in fault)
-                st.error(f"⚡ **CONTINGENCY — line fault:** {lines}. "
-                         "Press **🚀 Run Hybrid Optimization** to compute an islanding response.")
+                lines = ", ".join(
+                    f"{g0.nodes[u]['name']} ↔ {g0.nodes[v]['name']} "
+                    f"({g0.edges[u, v].get('base_flow_mw', g0.edges[u, v]['flow_mw']):.0f} MW)"
+                    for u, v in fault)
+                st.error(f"⚡ **CONTINGENCY — line fault:** {lines} · "
+                         f"peak line loading now **{sol0.worst_loading * 100:.0f}%** across "
+                         f"**{len(sol0.overloads)}** overloaded line(s). "
+                         "Press **🚀 Run Hybrid Optimization** for an islanding response.")
             else:
-                st.info("Grid intact. Select a contingency and press "
-                        "**🚀 Run Hybrid Optimization** in the sidebar.")
-            st.plotly_chart(ui.topology_figure(g0), width="stretch")
+                st.info("Grid intact and secure. Select a contingency in the sidebar.")
+
+            st.markdown(
+                cr.instrument_strip(sol0, risk0,
+                                    "awaiting operator action" if fault else "normal state"),
+                unsafe_allow_html=True)
+            st.plotly_chart(cr.one_line_diagram(g0, sol0), width="stretch")
+            if risk0["level"] != "secure":
+                st.markdown(
+                    f'<div class="callout"><div class="h">Security assessment</div>'
+                    f'<p>{risk0["note"]} Highest loading <b>{risk0["worst"]:.0f}%</b> of '
+                    f'rating. No islanding action has been taken.</p></div>',
+                    unsafe_allow_html=True)
         else:
             r, res = run.report, run.result
             for w in run.warnings:
@@ -181,46 +204,54 @@ evidence the circuit is doing work.</p>"""), unsafe_allow_html=True)
     with tab2:
         quantum_view.render(run=run, n_nodes=spec.n_nodes, layers=layers)
 
-    # ── Tab 3 — internals ────────────────────────────────────────────────────
+    # ── Tab 3 — internals + the limits argument ──────────────────────────────
     with tab3:
-        n = run.model.n_qubits if run else spec.n_nodes
-        nc = run.model.n_terms if run else n * (n - 1) // 2
-        st.markdown(f'<div class="circuit">{ui.circuit_ascii(n, layers, nc)}</div>',
-                    unsafe_allow_html=True)
-        st.markdown("")
+        sub_hard, sub_circuit = st.tabs(
+            ["⚠️  Why this is hard, and where the walls are",
+             "🔬  This circuit, gate by gate"])
 
-        if run:
-            st.plotly_chart(ui.probability_figure(run.result.get("top_states", []), n),
-                            width="stretch")
-            params = run.result.get("best_params", [])
-            p = run.result.get("layers", layers)
-            cols = st.columns(2)
-            cols[0].markdown(ui.card_html("Optimized cost angles γ", "".join(
-                f"<p>γ<sub>{i+1}</sub> = <strong>{v:.4f}</strong></p>"
-                for i, v in enumerate(params[:p]))), unsafe_allow_html=True)
-            cols[1].markdown(ui.card_html("Optimized mixer angles β", "".join(
-                f"<p>β<sub>{i+1}</sub> = <strong>{v:.4f}</strong></p>"
-                for i, v in enumerate(params[p:]))), unsafe_allow_html=True)
-            st.markdown(ui.card_html("Simulation note", """
+        with sub_hard:
+            limits_view.render(run)
+
+        with sub_circuit:
+            n = run.model.n_qubits if run else spec.n_nodes
+            nc = run.model.n_terms if run else n * (n - 1) // 2
+            st.markdown(f'<div class="circuit">{ui.circuit_ascii(n, layers, nc)}</div>',
+                        unsafe_allow_html=True)
+            st.markdown("")
+
+            if run:
+                st.plotly_chart(ui.probability_figure(run.result.get("top_states", []), n),
+                                width="stretch")
+                params = run.result.get("best_params", [])
+                p = run.result.get("layers", layers)
+                cols = st.columns(2)
+                cols[0].markdown(ui.card_html("Optimized cost angles γ", "".join(
+                    f"<p>γ<sub>{i+1}</sub> = <strong>{v:.4f}</strong></p>"
+                    for i, v in enumerate(params[:p]))), unsafe_allow_html=True)
+                cols[1].markdown(ui.card_html("Optimized mixer angles β", "".join(
+                    f"<p>β<sub>{i+1}</sub> = <strong>{v:.4f}</strong></p>"
+                    for i, v in enumerate(params[p:]))), unsafe_allow_html=True)
+                st.markdown(ui.card_html("Simulation note", """
 <p>The cost Hamiltonian is diagonal in the computational basis, so exp(-iγH<sub>C</sub>) is
 applied as a single elementwise phase multiply rather than as thousands of individual RZZ
 gates. This is an <strong>optimization, not an approximation</strong> — and you can check that
 here rather than take it on faith.</p>"""), unsafe_allow_html=True)
 
-            if st.button("🔍  Verify: apply every RZZ gate individually and compare"):
-                with st.spinner("Running both paths on the live backend…"):
-                    st.session_state["verify"] = verify_fast_path(
-                        run.model, layers=run.result.get("layers", layers),
-                        backend_preference=pref)
+                if st.button("🔍  Verify: apply every RZZ gate individually and compare"):
+                    with st.spinner("Running both paths on the live backend…"):
+                        st.session_state["verify"] = verify_fast_path(
+                            run.model, layers=run.result.get("layers", layers),
+                            backend_preference=pref)
 
-            v = st.session_state.get("verify")
-            if v:
-                if v.get("error"):
-                    st.error(f"Verification failed: {v['error']}")
-                else:
-                    dev = v.get("max_amplitude_deviation", 0.0)
-                    ok = v.get("equivalent")
-                    st.markdown(f"""
+                v = st.session_state.get("verify")
+                if v:
+                    if v.get("error"):
+                        st.error(f"Verification failed: {v['error']}")
+                    else:
+                        dev = v.get("max_amplitude_deviation", 0.0)
+                        ok = v.get("equivalent")
+                        st.markdown(f"""
 <div class="callout" style="border-left-color:var(--{'ok' if ok else 'crit'});
      background:rgba(61,220,151,.06);border-color:rgba(61,220,151,.32)">
   <div class="h" style="color:var(--{'ok' if ok else 'crit'})">
@@ -231,8 +262,8 @@ here rather than take it on faith.</p>"""), unsafe_allow_html=True)
   {'— floating-point noise, i.e. the two are the same unitary.' if ok
    else '— above tolerance, the fast path is NOT reproducing the gate sequence.'}</p>
 </div>""", unsafe_allow_html=True)
-        else:
-            st.info("Run an optimization to populate the measured statevector distribution.")
+            else:
+                st.info("Run an optimization to populate the measured statevector distribution.")
 
     # ── Tab 4 — capability ───────────────────────────────────────────────────
     with tab4:
