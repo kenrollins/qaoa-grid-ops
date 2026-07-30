@@ -284,3 +284,16 @@ code { color: var(--accent); background: var(--surface-alt); }
 .narrate.crit { border-left-color: var(--crit); background: rgba(255,45,85,.05); }
 .narrate.crit .h { color: var(--crit); }
 .narrate.accent { border-left-color: var(--accent); }
+
+/* ── "What the money buys" table ─────────────────────────────────────────── */
+.spec.buys th {
+  text-align: left; padding: .45rem .6rem; border-bottom: 1px solid var(--accent-dim);
+  font-family: var(--mono); font-size: .66rem; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--accent); font-weight: 650;
+}
+.spec.buys td { vertical-align: middle; }
+.spec.buys td:first-child { width: 34%; color: var(--text); font-family: inherit; font-size: .9rem; }
+.spec.buys td .sub { color: var(--text-dim); font-family: var(--mono); font-size: .68rem; }
+.spec.buys td.v { text-align: left; font-variant-numeric: tabular-nums; }
+.spec.buys tr:last-child td { border-bottom: none; }
+p.fine { color: var(--text-dim); font-size: .78rem; line-height: 1.6; margin-top: .5rem; }

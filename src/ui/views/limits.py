@@ -120,6 +120,87 @@ def scaling_measured_figure() -> go.Figure:
     return fig
 
 
+# What a tier buys, on the two axes that actually matter. Throughput assumes the
+# work is embarrassingly parallel across devices, which parameter sweeps, noise
+# ensembles and ansatz comparisons genuinely are. Times scale from the MEASURED
+# GB10 figure of 50 s per energy evaluation at 30 qubits.
+SECONDS_PER_EVAL_30Q = 50.0
+STUDY_EVALS = 30_000          # 1,000 candidate configurations x ~30 optimizer steps
+
+TIER_VALUE = [
+    # (name, devices, clean qubits, noisy qubits)
+    ("Developer workstation<br><span class='sub'>Dell Pro Max · GB10</span>", 1, 33, 16),
+    ("Single node<br><span class='sub'>PowerEdge XE9680 · 8× B200</span>", 8, 36, 18),
+    ("Rack<br><span class='sub'>GB200 NVL72</span>", 72, 39, 19),
+    ("Multi-rack AI Factory<br><span class='sub'>~8 racks</span>", 576, 42, 21),
+]
+
+
+def _fmt_duration(seconds: float) -> str:
+    if seconds < 90:
+        return f"{seconds:.0f} sec"
+    if seconds < 5400:
+        return f"{seconds / 60:.0f} min"
+    if seconds < 86400 * 2:
+        return f"{seconds / 3600:.1f} hours"
+    return f"{seconds / 86400:.1f} days"
+
+
+def crossover_figure() -> go.Figure:
+    """Where classical simulation stops, and what a real QPU costs instead.
+
+    The honest comparison is NOT "quantum solves this faster than classical" --
+    for QAOA on QUBO problems no such advantage has been demonstrated, and an
+    audience that knows the field will say so. The defensible comparison is
+    SIMULABILITY: what it costs to hold the quantum state at all.
+    """
+    ns = list(range(10, 61))
+    fig = go.Figure()
+
+    fig.add_trace(go.Scatter(
+        x=ns, y=[(2 ** n) * 16 / 2**30 for n in ns], mode="lines",
+        name="Classical simulation — clean",
+        line=dict(color=COLORS["accent"], width=3),
+        hovertemplate="%{x} qubits<br>%{y:,.3g} GB of memory<extra></extra>"))
+    fig.add_trace(go.Scatter(
+        x=ns, y=[(2 ** (2 * n)) * 16 / 2**30 for n in ns], mode="lines",
+        name="Classical simulation — with noise",
+        line=dict(color=COLORS["crit"], width=3, dash="dash"),
+        hovertemplate="%{x} qubits<br>%{y:,.3g} GB of memory<extra></extra>"))
+
+    # A real device stores n qubits in n qubits. Flat, and that is the point.
+    fig.add_trace(go.Scatter(
+        x=ns, y=[n * 1e-9 for n in ns], mode="lines",
+        name="Actual quantum hardware",
+        line=dict(color=COLORS["ok"], width=3),
+        hovertemplate="%{x} qubits on a real device<extra></extra>"))
+
+    fig.add_hrect(y0=100 * 2**10, y1=1e12, fillcolor=COLORS["crit"], opacity=0.07,
+                  line_width=0, annotation_text="  beyond any machine that will be built",
+                  annotation_position="top left",
+                  annotation_font=dict(color=COLORS["crit"], size=11))
+    for label, cap, color in TIERS:
+        fig.add_hline(y=cap / 2**30, line=dict(color=color, width=1.1, dash="dot"),
+                      annotation_text=f"  {label.split(' · ')[0]}",
+                      annotation_position="top left",
+                      annotation_font=dict(color=color, size=9))
+
+    fig.add_vline(x=50, line=dict(color=COLORS["warn"], width=2))
+    fig.add_annotation(x=50, y=1e9, text="THE CLIFF<br>~50 qubits", showarrow=False,
+                       font=dict(color=COLORS["warn"], size=12), xshift=-52)
+
+    fig.update_layout(
+        template="plotly_dark", paper_bgcolor=COLORS["surface"], plot_bgcolor="#070b12",
+        font=dict(color=COLORS["text"], size=12), height=490,
+        margin=dict(l=65, r=30, t=52, b=50),
+        title=dict(text="What it costs to hold a quantum state", font=dict(size=14)),
+        legend=dict(bgcolor="rgba(7,11,18,.85)", x=0.02, y=0.98, font=dict(size=11)))
+    fig.update_xaxes(title="Qubits", gridcolor=COLORS["line"], dtick=5)
+    fig.update_yaxes(title="Memory (GB, log scale)", type="log", gridcolor=COLORS["line"],
+                     range=[-9, 11])
+    return fig
+
+
 def _hard(num: str, title: str, plain: str, detail: str, cost: str) -> str:
     return (f'<div class="qstep"><div class="num">{num}</div><div class="body">'
             f'<div class="t">{title}</div>'
@@ -258,6 +339,85 @@ FLOP-bound, and why unified memory on the GB10 matters more than raw compute.
   <p>Both were found by checking against brute force, which is only affordable below ~20
   qubits. Above that, an algorithm can be quietly, confidently wrong — which is precisely why
   the development regime, where truth is still computable, is the regime that matters.</p>
+</div>""", unsafe_allow_html=True)
+
+    st.markdown("### Where classical compute falls off the cliff")
+    st.plotly_chart(crossover_figure(), width="stretch")
+    st.markdown("""
+<div class="callout">
+  <div class="h">Read the green line</div>
+  <p>A real quantum computer stores 50 qubits <em>in 50 qubits</em>. Writing that same state
+  down classically takes <strong>18 petabytes</strong> — not slow, <strong>impossible</strong>,
+  on any machine that will ever be built. That is the entire reason quantum hardware is worth
+  pursuing, and it is a statement about <em>simulability</em>, not about speed.</p>
+  <p><strong>What this chart does not claim:</strong> that quantum beats classical at solving
+  this grid problem. It does not, today. QAOA has no demonstrated advantage over good
+  classical heuristics on problems like this, and anyone who follows the field knows it. The
+  argument here is different and stronger — it is about <em>where the ability to check your
+  own work runs out</em>.</p>
+</div>""", unsafe_allow_html=True)
+
+    st.markdown("### So what does the money actually buy?")
+    st.markdown("""
+Two axes, and only one of them is about qubits. The second is the one that justifies
+the spend.
+""")
+    rows = []
+    for name, devices, clean, noisy in TIER_VALUE:
+        secs = STUDY_EVALS * SECONDS_PER_EVAL_30Q / devices
+        rows.append(
+            f"<tr><td>{name}</td><td class='v'>{clean}</td><td class='v'>{noisy}</td>"
+            f"<td class='v'>{devices:,}</td><td class='v'><b>{_fmt_duration(secs)}</b></td></tr>")
+    st.markdown(f"""
+<table class="spec buys">
+  <tr><th>Configuration</th><th>Clean qubits</th><th>Noisy qubits</th>
+      <th>Parallel devices</th><th>One 1,000-config study</th></tr>
+  {''.join(rows)}
+</table>
+<p class="fine">Qubit ceilings are arithmetic from aggregate memory. Study time scales from the
+<b>measured</b> GB10 figure of 50 s per energy evaluation at 30 qubits, over 1,000 candidate
+configurations at ~30 optimizer steps each — work that is embarrassingly parallel across
+devices, as parameter sweeps and noise ensembles genuinely are.</p>""",
+                unsafe_allow_html=True)
+
+    st.markdown("""
+<div class="callout">
+  <div class="h">The qubit column is the disappointing one. The last column is the point.</div>
+  <p>Every tier buys roughly <strong>three more qubits</strong> — an 800× increase in
+  hardware for nine. If you are buying qubit count, the maths is brutal and you should not
+  buy.</p>
+  <p>But look at the right-hand column. The same study that takes a workstation
+  <strong>17 days</strong> finishes on a rack in <strong>under six hours</strong>. That is
+  not a marginal gain, it is the difference between <em>one experiment per sprint</em> and
+  <em>a dozen per day</em> — and algorithm development is exactly the kind of work where
+  progress is measured in how many ideas you can test, not how big any one of them was.</p>
+  <p>The second reason is starker: <strong>noisy validation is not optional and it is not
+  cheap.</strong> Designing something that survives real hardware means simulating real
+  hardware, and that squares the memory. A workstation reaches 16 noisy qubits. Useful noisy
+  validation of a meaningful algorithm needs the big system or it does not happen at all.</p>
+</div>""", unsafe_allow_html=True)
+
+    st.markdown("### Why do this now, before the QPUs are ready?")
+    st.markdown("""
+<div class="callout" style="border-left-color:var(--accent);
+     background:rgba(0,200,255,.05);border-color:rgba(0,200,255,.3)">
+  <div class="h" style="color:var(--accent)">Because the ability to check your work expires</div>
+  <p>Right now, a 20-qubit algorithm can be brute-forced and <strong>proved</strong> correct.
+  A 33-qubit one can be simulated exactly. That is a window, and it is closing from the far
+  side: as real devices grow past ~50 qubits, <strong>nothing classical can verify them any
+  more</strong>. You will be running algorithms whose answers cannot be independently checked.</p>
+  <p>Every encoding, every error-mitigation strategy, every ansatz choice you want to trust on
+  a future 100-qubit device has to be developed and validated <em>in the regime where ground
+  truth still exists</em>. That regime is today, and it is finite.</p>
+  <p>The organisations that wait for useful QPUs will start their algorithm work at the exact
+  moment verification becomes impossible. The ones building now will already know which
+  approaches survive noise, which encodings fit real connectivity, and which optimisers do
+  not silently stall — because they will have watched them fail somewhere it could still be
+  measured.</p>
+  <p><strong>This project is a worked example of that.</strong> Two algorithm failures were
+  caught here only because brute force was still affordable: a deeper circuit scoring worse
+  than a shallow one, and an optimiser reporting convergence while returning an unevolved
+  state. Above ~20 qubits, both would have been invisible and both would have been believed.</p>
 </div>""", unsafe_allow_html=True)
 
     st.markdown("### What this means for the architecture")
