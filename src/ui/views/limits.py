@@ -390,7 +390,12 @@ FLOP-bound, and why unified memory on the GB10 matters more than raw compute.
                     st.caption(f"**{r['label']}** — {r['note']}")
 
                 clean, noisy = rz.get("max_qubits_clean"), rz.get("max_qubits_noisy")
-                if clean and noisy:
+                # Only when the ceilings are genuinely memory-derived. On the
+                # local-cpu fallback, max_qubits is a hard-coded 24 and the
+                # noisy ceiling is computed from an assumed 8 GiB — showing
+                # those under "Measured on this machine, right now" would be
+                # exactly the overclaim this page exists to avoid.
+                if clean and noisy and rz.get("backend") != "local-cpu":
                     st.markdown(f"""
 <div class="callout" style="border-left-color:var(--crit)">
   <div class="h" style="color:var(--crit)">Measured on this machine, right now</div>
