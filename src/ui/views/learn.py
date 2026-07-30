@@ -26,6 +26,7 @@ import streamlit as st
 
 from src.config.settings import COLORS, GridSpec
 from src.simulation import power_flow as pf
+from src.simulation import noise as nz
 from src.simulation import qaoa_core
 from src.simulation.grid_model import (
     apply_fault, build_grid, build_ising, brute_force_ground_state, evaluate_partition,
@@ -239,6 +240,97 @@ def tradeoff_figure(n_nodes: int, seed: int) -> go.Figure:
     return fig
 
 
+# ── Figure 4: trajectories converging on the exact answer ────────────────────
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def _trajectory_data(n_nodes: int, seed: int, noise_pct: float, n_traj: int):
+    """Run BOTH methods on the same problem so convergence is demonstrable.
+
+    Deliberately small: the density matrix has to be affordable for the exact
+    line to exist at all. That constraint is itself the point being made.
+    """
+    spec = GridSpec(n_nodes=n_nodes, seed=seed)
+    g = build_grid(spec)
+    m = build_ising(g, spec.weights)
+    res = qaoa_core.optimize_qaoa(n_nodes, m.couplings, m.offset, layers=2, steps=40)
+    gam, bet = res.best_params[:2], res.best_params[2:]
+    p = noise_pct / 100.0
+
+    diag = qaoa_core.cost_diagonal(n_nodes, m.couplings, m.offset)
+    rho = nz.qaoa_density_matrix(n_nodes, diag, gam, bet, depolarizing=p)
+    exact = nz.density_expectation(rho, diag)
+    del rho
+
+    tr = nz.qaoa_trajectories(n_nodes, m.couplings, m.offset, gam, bet,
+                              depolarizing=p, trajectories=n_traj, seed=seed + 1,
+                              keep_probs=False)
+    return exact, tr.running_mean, tr.running_stderr, nz.density_matrix_bytes(n_nodes), tr.memory_bytes
+
+
+def trajectory_convergence_figure(n_nodes: int, seed: int, noise_pct: float,
+                                  n_traj: int) -> go.Figure:
+    exact, mean, err, dm_bytes, tr_bytes = _trajectory_data(n_nodes, seed, noise_pct, n_traj)
+    xs = list(range(1, len(mean) + 1))
+    hi = [m + (e if e == e else 0) for m, e in zip(mean, err)]
+    lo = [m - (e if e == e else 0) for m, e in zip(mean, err)]
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=xs + xs[::-1], y=hi + lo[::-1], fill="toself",
+                             fillcolor="rgba(0,200,255,.15)", line=dict(width=0),
+                             name="uncertainty (±1 standard error)", hoverinfo="skip"))
+    fig.add_trace(go.Scatter(x=xs, y=mean, mode="lines", name="running average of the dice rolls",
+                             line=dict(color=COLORS["accent"], width=2.4),
+                             hovertemplate="after %{x} runs<br>estimate %{y:.4f}<extra></extra>"))
+    fig.add_hline(y=exact, line=dict(color=COLORS["ok"], width=2.5, dash="dash"),
+                  annotation_text="  the exact answer (density matrix)",
+                  annotation_position="top right",
+                  annotation_font=dict(color=COLORS["ok"], size=11))
+    fig.update_layout(
+        template="plotly_dark", paper_bgcolor=COLORS["surface"], plot_bgcolor="#070b12",
+        font=dict(color=COLORS["text"], size=12), height=400,
+        margin=dict(l=60, r=25, t=52, b=48),
+        title=dict(text="Many cheap random runs, averaged, land on the expensive exact answer",
+                   font=dict(size=13)),
+        legend=dict(bgcolor="rgba(7,11,18,.85)", x=0.4, y=0.02, font=dict(size=10)))
+    fig.update_xaxes(title="number of noisy runs averaged", gridcolor=COLORS["line"])
+    fig.update_yaxes(title="estimated ⟨H⟩", gridcolor=COLORS["line"])
+    return fig
+
+
+def noise_memory_figure() -> go.Figure:
+    """The two noise methods against the machine that has to hold them."""
+    ns = list(range(8, 33))
+    dm = [(2 ** (2 * n)) * 16 / 2**30 for n in ns]
+    tr = [(2 ** n) * 16 / 2**30 for n in ns]
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=ns, y=dm, mode="lines", name="Density matrix (exact)",
+                             line=dict(color=COLORS["crit"], width=3),
+                             hovertemplate="%{x} qubits<br>%{y:,.3g} GB<extra></extra>"))
+    fig.add_trace(go.Scatter(x=ns, y=tr, mode="lines", name="One trajectory (approximate)",
+                             line=dict(color=COLORS["ok"], width=3),
+                             hovertemplate="%{x} qubits<br>%{y:,.3g} GB<extra></extra>"))
+    fig.add_hline(y=66, line=dict(color=COLORS["accent"], width=2, dash="dot"),
+                  annotation_text="  what a 128 GB GB10 can actually use",
+                  annotation_position="top left",
+                  annotation_font=dict(color=COLORS["accent"], size=10))
+    fig.add_vline(x=14, line=dict(color=COLORS["crit"], width=1.5, dash="dash"),
+                  annotation_text="exact stops here", annotation_position="top",
+                  annotation_font=dict(color=COLORS["crit"], size=10))
+    fig.add_vline(x=30, line=dict(color=COLORS["ok"], width=1.5, dash="dash"),
+                  annotation_text="trajectories reach here", annotation_position="top",
+                  annotation_font=dict(color=COLORS["ok"], size=10))
+    fig.update_layout(
+        template="plotly_dark", paper_bgcolor=COLORS["surface"], plot_bgcolor="#070b12",
+        font=dict(color=COLORS["text"], size=12), height=400,
+        margin=dict(l=62, r=25, t=52, b=48),
+        title=dict(text="Same noise, same machine, two ways of paying for it",
+                   font=dict(size=13)),
+        legend=dict(bgcolor="rgba(7,11,18,.85)", x=0.02, y=0.98, font=dict(size=11)))
+    fig.update_xaxes(title="Qubits", gridcolor=COLORS["line"], dtick=2)
+    fig.update_yaxes(title="Memory (GB, log scale)", type="log", gridcolor=COLORS["line"])
+    return fig
+
+
 # ── The page ─────────────────────────────────────────────────────────────────
 
 def render() -> None:
@@ -405,6 +497,82 @@ sat high on the vertical axis: it loaded a line to 202% of rating, where taking 
 action at all peaked at 137%. The fix in the demo is to take the top candidates the
 quantum circuit produces and run a real power flow on each, choosing on the axis the
 Hamiltonian cannot see. See note 03 for the full treatment.
+""")
+
+    # ── 4. Trajectories ─────────────────────────────────────────────────────
+    st.markdown("## 4. Making noise affordable: roll dice instead of tracking everything")
+    st.markdown("""
+Real quantum computers make mistakes. To design an algorithm that survives them you have
+to simulate those mistakes — and that is where the memory bill explodes.
+
+**The exact way.** Track every possible thing the noise could have done, all at once, and
+how likely each is. That object is called a *density matrix*, and it needs **2ⁿ × 2ⁿ**
+numbers instead of 2ⁿ. On the GB10 that is the difference between 30 qubits and **14**.
+
+**The dice way.** Run the circuit as normal, and every time noise would act, *roll dice
+and pick one specific error*. That run is wrong — it is one arbitrary way the noise could
+have landed. But do it hundreds of times with different dice and average the answers, and
+you converge on precisely what the density matrix would have told you.
+
+Each run is an ordinary statevector, so each costs **2ⁿ**, not 2ⁿ × 2ⁿ. You have traded a
+memory problem for a repetition problem — and repetition is the easy kind, because the runs
+are independent and can go on separate GPUs.
+""")
+    cc = st.columns([1, 1, 1, 2])
+    tn = cc[0].select_slider("Grid size", [8, 10], value=8, key="trajn",
+                             help="Small on purpose — the exact answer must be affordable "
+                                  "to compute, or there is nothing to converge to.")
+    tnoise = cc[1].select_slider("Gate error", [1.0, 3.0, 6.0], value=3.0, key="trajp",
+                                 format_func=lambda v: f"{v}%")
+    ttraj = cc[2].select_slider("Runs to average", [100, 300, 800], value=300, key="trajn2")
+
+    with st.spinner("Computing the exact answer, then rolling dice…"):
+        st.plotly_chart(trajectory_convergence_figure(tn, 7, tnoise, ttraj), width="stretch")
+
+    st.markdown("""
+The blue line is the running average of the dice rolls; the shaded band is how uncertain it
+still is. The green dashed line is the exact answer computed the expensive way.
+
+Watch the shape: the first few runs are all over the place, then it settles. **The error
+shrinks with the square root of the number of runs** — so to halve your uncertainty you need
+*four times* as many runs. That is the price of the trade, and it is why this approach is
+throughput-bound rather than memory-bound.
+""")
+
+    st.plotly_chart(noise_memory_figure(), width="stretch")
+    st.markdown("""
+This is the whole argument in one picture. Both lines are the same noisy physics on the same
+machine. The red line — the exact method — crosses what a 128 GB GB10 can use at about
+**14 qubits**. The green line, one trajectory at a time, does not cross it until **30**.
+
+So which do you want? Both, for different jobs:
+
+- **Exact (density matrix)** when you need certainty and the problem is small — validating
+  that an error-mitigation strategy actually works, where a statistical wobble would hide
+  the effect you are measuring.
+- **Trajectories** when you need scale — asking whether an algorithm survives realistic noise
+  at a realistic size, where an answer to within 1% is fine and you have GPUs to spread the
+  runs across.
+
+And that second case is what makes GPU *count* matter, not just GPU memory. A thousand
+independent noisy runs is the most parallel workload in this entire demo.
+""")
+    st.markdown("""
+##### Measured on the GB10 — same noise, same machine
+
+| qubits | exact (density matrix) | 40 trajectories |
+|---|---|---|
+| 14 | 4.0 GB · 17.6 s · ⟨H⟩ = 3.3964 | 0.004 GB · 0.02 s · ⟨H⟩ = 3.4080 ± 0.0107 |
+| 20 | 16 TB — will not fit | 0.02 GB · 0.30 s |
+| 26 | 67 PB — will not fit | 1.0 GB · 34.8 s |
+| 30 | **17 exabytes** — will not fit | **16 GB** · 643 s |
+
+The 14-qubit row is the important one: it is the largest problem where *both* methods run,
+and they agree to within one standard error. That agreement is what licenses every row
+below it, where only one method can be checked because only one method exists.
+
+At 30 qubits the exact approach would need seventeen **exabytes**. The dice approach needs
+sixteen gigabytes and eleven minutes, and it is wrong by about 0.2%.
 """)
 
     st.markdown("---")

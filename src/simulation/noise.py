@@ -297,3 +297,129 @@ def compare_realism(
              f"Memory cost is 2^(2n), not 2^n."))
     del rho, diag
     return out
+
+
+# ── Quantum trajectories — noise without the density matrix ──────────────────
+#
+# WHAT THIS IS, in one paragraph.
+#
+# A density matrix tracks every possible noisy outcome simultaneously, and pays
+# 2^(2n) memory to do it. A TRAJECTORY does the opposite: run the circuit ONCE
+# as an ordinary statevector, and each time noise would act, roll dice and apply
+# one specific random error. That single run is wrong -- it is one arbitrary way
+# the noise could have landed. But run it many times with different dice and
+# average the results, and you converge on exactly what the density matrix would
+# have told you.
+#
+# The trade is memory for repetition. Each trajectory costs 2^n instead of
+# 2^(2n), so noisy simulation reaches roughly the same qubit count as clean
+# simulation. What you give up is exactness: the answer carries statistical
+# error that shrinks as 1/sqrt(N_trajectories), so halving the error costs four
+# times the runs. Trajectories are independent, so that cost is pure throughput
+# -- it parallelises perfectly across GPUs, where the density matrix needs one
+# machine big enough to hold the whole thing.
+#
+# WHY IT IS VALID for depolarising noise. The channel
+#     rho -> (1-p) rho + (p/3)(X rho X + Y rho Y + Z rho Z)
+# is already written as a probabilistic mixture. Applying I with probability
+# (1-p) and each Pauli with probability p/3, then averaging over runs,
+# reproduces that expression by definition of an average. This is the standard
+# Monte Carlo wavefunction / quantum trajectory method.
+
+_PAULI = {
+    "X": (0.0 + 0j, 1.0 + 0j, 1.0 + 0j, 0.0 + 0j),
+    "Y": (0.0 + 0j, -1j, 1j, 0.0 + 0j),
+    "Z": (1.0 + 0j, 0.0 + 0j, 0.0 + 0j, -1.0 + 0j),
+}
+
+
+def _apply_pauli(sv: Any, n: int, t: int, which: str, xp: Any) -> None:
+    m00, m01, m10, m11 = _PAULI[which]
+    qaoa_core._apply_1q(sv, n, t, m00, m01, m10, m11, xp)
+
+
+def qaoa_trajectory(
+    n_qubits: int, diag: Any, gammas, betas, depolarizing: float,
+    rng: np.random.Generator, xp: Any = np, custatevec_ctx=None,
+) -> Any:
+    """One noisy run: the QAOA circuit with randomly-sampled Pauli errors.
+
+    Returns a statevector, not a density matrix. It is a single sample from the
+    noisy distribution and is not meaningful alone — average many.
+    """
+    dim = 1 << n_qubits
+    sv = xp.full(dim, 1.0 / np.sqrt(dim), dtype=xp.complex128)
+
+    for gamma, beta in zip(gammas, betas):
+        qaoa_core.apply_cost_diagonal(sv, diag, float(gamma), xp)
+        qaoa_core.apply_mixer(sv, n_qubits, float(beta), xp, custatevec_ctx)
+
+        if depolarizing > 0:
+            # One die roll per qubit per layer: nothing with probability 1-p,
+            # otherwise one of X, Y, Z with probability p/3 each.
+            hits = rng.random(n_qubits) < depolarizing
+            for t in np.nonzero(hits)[0]:
+                _apply_pauli(sv, n_qubits, int(t), "XYZ"[rng.integers(3)], xp)
+    return sv
+
+
+@dataclass
+class TrajectoryResult:
+    n_qubits: int
+    trajectories: int
+    depolarizing: float
+    energy: float
+    energy_stderr: float
+    running_mean: list = field(default_factory=list)   # convergence trace
+    running_stderr: list = field(default_factory=list)
+    probs: Any = None
+    seconds: float = 0.0
+    memory_bytes: int = 0
+
+    def to_dict(self) -> dict:
+        d = {k: v for k, v in self.__dict__.items() if k != "probs"}
+        return d
+
+
+def qaoa_trajectories(
+    n_qubits: int, couplings, offset: float, gammas, betas,
+    depolarizing: float = 0.02, trajectories: int = 200,
+    xp: Any = np, seed: int = 17, custatevec_ctx=None,
+    keep_probs: bool = True,
+) -> TrajectoryResult:
+    """Average many noisy runs. Memory is 2^n, not 2^(2n).
+
+    Also records the running mean and standard error after each trajectory, so
+    the convergence toward the exact answer can be shown rather than asserted.
+    """
+    t0 = time.perf_counter()
+    rng = np.random.default_rng(seed)
+    diag = qaoa_core.cost_diagonal(n_qubits, couplings, offset, xp=xp)
+
+    acc = xp.zeros(1 << n_qubits, dtype=xp.float64) if keep_probs else None
+    energies: list[float] = []
+    run_mean, run_err = [], []
+
+    for k in range(trajectories):
+        sv = qaoa_trajectory(n_qubits, diag, gammas, betas, depolarizing,
+                             rng, xp, custatevec_ctx)
+        p = qaoa_core.probabilities(sv, xp)
+        energies.append(float(xp.sum(p * diag)))
+        if acc is not None:
+            acc += p
+        del sv, p
+
+        e = np.asarray(energies)
+        run_mean.append(float(e.mean()))
+        run_err.append(float(e.std(ddof=1) / np.sqrt(k + 1)) if k else float("nan"))
+
+    probs = (acc / trajectories) if acc is not None else None
+    del acc, diag
+
+    return TrajectoryResult(
+        n_qubits=n_qubits, trajectories=trajectories, depolarizing=depolarizing,
+        energy=run_mean[-1], energy_stderr=run_err[-1],
+        running_mean=run_mean, running_stderr=run_err, probs=probs,
+        seconds=time.perf_counter() - t0,
+        memory_bytes=(1 << n_qubits) * 16,
+    )
