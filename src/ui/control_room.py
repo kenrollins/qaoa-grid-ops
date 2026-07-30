@@ -134,7 +134,11 @@ def one_line_diagram(
                     x=[ax], y=[ay], mode="markers",
                     marker=dict(
                         symbol="arrow", size=8 + min(9, abs(flow) / 14.0),
-                        angle=(ang - 90) if flow >= 0 else (ang + 90),
+                        # Plotly marker.angle is CLOCKWISE from screen-up, so a
+                        # data-space bearing θ (counter-clockwise from east, y up)
+                        # renders correctly at 90−θ, not θ−90 — the latter mirrors
+                        # every arrow east–west.
+                        angle=(90 - ang) if flow >= 0 else (270 - ang),
                         color=band_color if loading >= 0.80 else e.get("kv_color", "#8a99ad"),
                         line=dict(color=COLORS["bg"], width=0.6)),
                     showlegend=False, hoverinfo="text",
@@ -333,7 +337,10 @@ def _line_arrow_track(g, sol, opened, n_steps: int, per_line: int = 3):
         x1, y1 = g.nodes[v]["x"], g.nodes[v]["y"]
         if f < 0:                      # draw in the direction power actually goes
             x0, y0, x1, y1 = x1, y1, x0, y0
-        ang = math.degrees(math.atan2(y1 - y0, x1 - x0)) - 90
+        # 90−θ, not θ−90: marker.angle is clockwise from screen-up (see
+        # one_line_diagram). θ−90 mirrors the arrowheads east–west, so they
+        # point against their own direction of travel on horizontal lines.
+        ang = 90 - math.degrees(math.atan2(y1 - y0, x1 - x0))
         color, _ = pf.loading_band(loading)
         if loading < 0.80:
             color = e.get("kv_color", "#8a99ad")
