@@ -18,11 +18,9 @@ Run:
 
 from __future__ import annotations
 
-import math
 import os
 import sys
 import time
-from typing import Any
 
 # The shared math lives in the project's src/ tree, rsynced alongside this file.
 sys.path.insert(0, os.getenv("GRIDOPS_ROOT", "/opt/gridops"))
@@ -110,7 +108,7 @@ class EvaluateRequest(BaseModel):
 
 
 class RealismRequest(BaseModel):
-    n_qubits: int = Field(ge=2, le=18)   # density matrix is 2^(2n) -- 18 is 69 GB
+    n_qubits: int = Field(ge=2, le=18)   # density matrix is 2^(2n) -- 16 is 69 GiB, 18 is 1 TiB
     couplings: list[tuple[int, int, float]]
     offset: float = 0.0
     gammas: list[float]

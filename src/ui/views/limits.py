@@ -52,7 +52,6 @@ def _qubits_for(capacity_bytes: float, noisy: bool) -> float:
 
 def memory_wall_figure() -> go.Figure:
     """The two curves that define the whole problem."""
-    import math
 
     ns = list(range(10, 56))
     sv = [(2 ** n) * 16 for n in ns]
@@ -250,7 +249,7 @@ noisy simulation reaches roughly **half** the qubits of clean simulation.
   <div class="h">Read those four numbers together</div>
   <p>Going from a <strong>developer workstation</strong> to a <strong>multi-rack AI
   Factory</strong> — an 800× increase in memory — buys about <strong>nine more clean qubits,
-  or four noisy ones</strong>. That is what exponential means, and it is the honest reason
+  or five noisy ones</strong>. That is what exponential means, and it is the honest reason
   quantum matters: a real 30-qubit noisy device does for free what no classical machine we
   can build will do.</p>
   <p>It is also the reason simulation capacity is the binding constraint on algorithm
@@ -330,8 +329,10 @@ FLOP-bound, and why unified memory on the GB10 matters more than raw compute.
   ratio of <strong>0.135</strong> against p=2's <strong>0.255</strong> — backwards from how the
   algorithm is supposed to behave, on the single slider a knowledgeable visitor reaches for
   first. Cause: γ was scaled by the largest coupling instead of by <strong>σ(H)</strong>, the
-  spread of the cost function. On a dense problem that overshoots by roughly √(term count),
-  so the entire search budget was spent in an over-rotated regime that looks like noise.</p>
+  spread of the cost function. Those come apart as a problem gets denser — measured on this
+  objective the search ran ~3× wider than the informative range (the Learn tab has the
+  measured table) — so most of the budget was spent in an over-rotated regime that looks
+  like noise.</p>
   <p><strong>2. The optimiser reported convergence on the unevolved state.</strong> Runs
   finished, drew a clean curve, and returned an energy exactly equal to the Hamiltonian's
   constant offset — the signature of γ≈0, meaning the cost unitary had done
@@ -388,7 +389,12 @@ FLOP-bound, and why unified memory on the GB10 matters more than raw compute.
                     st.caption(f"**{r['label']}** — {r['note']}")
 
                 clean, noisy = rz.get("max_qubits_clean"), rz.get("max_qubits_noisy")
-                if clean and noisy:
+                # Only when the ceilings are genuinely memory-derived. On the
+                # local-cpu fallback, max_qubits is a hard-coded 24 and the
+                # noisy ceiling is computed from an assumed 8 GiB — showing
+                # those under "Measured on this machine, right now" would be
+                # exactly the overclaim this page exists to avoid.
+                if clean and noisy and rz.get("backend") != "local-cpu":
                     st.markdown(f"""
 <div class="callout" style="border-left-color:var(--crit)">
   <div class="h" style="color:var(--crit)">Measured on this machine, right now</div>

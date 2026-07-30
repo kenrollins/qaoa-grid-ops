@@ -113,8 +113,8 @@ def render(spec, backend: dict, layers: int, pref: str, steps: int = 30,
   <p>Every line is inside its rating; the busiest is at
   <b>{sol.worst_loading * 100:.0f}%</b>. Nothing is wrong — and that is the point
   of looking at it now, so the next screen means something.</p>
-  <p class="cue">▶ Press <b>ENERGISE</b> on the diagram to start the flow, then
-  <b>② Trip the line</b> above.</p>
+  <p class="cue">▶ Watch the power move — the arrows run faster on harder-working
+  lines. When you have the picture, press <b>② Trip the line</b> above.</p>
 </div>""", unsafe_allow_html=True)
             st.markdown(cr.instrument_strip(sol, pf.cascade_risk(sol), "normal state"),
                         unsafe_allow_html=True)

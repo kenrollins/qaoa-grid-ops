@@ -186,7 +186,12 @@ def live_edges(g: nx.Graph) -> list[tuple[int, int]]:
 
 
 def faulted_edges(g: nx.Graph) -> list[tuple[int, int, float]]:
-    return [(int(u), int(v), float(g.edges[u, v]["flow_mw"]))
+    # base_flow_mw (the solved base-case flow) when calibrated, for the same
+    # reason build_ising uses it: flow_mw is a synthetic generator attribute
+    # unrelated to where power actually goes, and this MW figure is shown to
+    # the operator ("was carrying N MW").
+    return [(int(u), int(v),
+             float(g.edges[u, v].get("base_flow_mw", g.edges[u, v]["flow_mw"])))
             for u, v in g.edges() if g.edges[u, v].get("faulted")]
 
 
@@ -368,8 +373,14 @@ def evaluate_partition(g: nx.Graph, model: IsingModel, bitstring: str) -> Partit
     # A faulted line is already out: cutting it interrupts nothing further, so
     # counting it as "severed by the plan" would inflate the headline MW figure
     # with damage the fault already did.
+    #
+    # MW figures use base_flow_mw (the solved base-case flow) when the network
+    # has been calibrated — the same basis build_ising cuts on. flow_mw is a
+    # synthetic attribute; reporting it here put 67 MW on a breaker whose line
+    # actually carried 4 MW.
     severed = [
-        (int(u), int(v), float(g.edges[u, v]["flow_mw"]))
+        (int(u), int(v),
+         float(g.edges[u, v].get("base_flow_mw", g.edges[u, v]["flow_mw"])))
         for u, v in g.edges()
         if bits[u] != bits[v] and not g.edges[u, v].get("faulted")
     ]

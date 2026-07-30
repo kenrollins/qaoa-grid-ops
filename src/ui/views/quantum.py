@@ -148,13 +148,20 @@ layer that stays necessary when real QPUs arrive.</p>"""), unsafe_allow_html=Tru
             unsafe_allow_html=True)
 
         if run.exact:
+            # is_optimal describes the plan ACTUALLY APPLIED, and post-selection
+            # may deliberately prefer a thermally secure candidate over the
+            # energy optimum — same framing rule as command_center.py.
+            verdict = ("matches the exact optimum"
+                       if run.is_optimal else
+                       "deliberately differs from the objective's optimum — the "
+                       "energy-minimising split failed the thermal screen, so a "
+                       "different candidate from the quantum shortlist was applied")
             st.markdown(f"""
 <div class="callout" style="border-left-color:var(--ok);
      background:rgba(61,220,151,.06);border-color:rgba(61,220,151,.32)">
   <div class="h" style="color:var(--ok)">Verified against ground truth</div>
   <p>Every one of the <strong>{2 ** run.model.n_qubits:,}</strong> possible partitions was
-  also evaluated by brute force. The plan QAOA returned
-  <strong>{'matches the exact optimum' if run.is_optimal else 'did NOT match the exact optimum'}</strong>.</p>
+  also evaluated by brute force. The plan applied <strong>{verdict}</strong>.</p>
   <p>This check is only affordable below ~20 qubits — which is precisely why it matters
   that it runs <em>here</em>. Algorithm correctness gets established in the regime where
   truth is still computable, before scaling to sizes where it is not.</p>
