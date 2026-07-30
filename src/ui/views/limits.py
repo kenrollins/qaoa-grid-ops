@@ -250,7 +250,7 @@ noisy simulation reaches roughly **half** the qubits of clean simulation.
   <div class="h">Read those four numbers together</div>
   <p>Going from a <strong>developer workstation</strong> to a <strong>multi-rack AI
   Factory</strong> — an 800× increase in memory — buys about <strong>nine more clean qubits,
-  or four noisy ones</strong>. That is what exponential means, and it is the honest reason
+  or five noisy ones</strong>. That is what exponential means, and it is the honest reason
   quantum matters: a real 30-qubit noisy device does for free what no classical machine we
   can build will do.</p>
   <p>It is also the reason simulation capacity is the binding constraint on algorithm
