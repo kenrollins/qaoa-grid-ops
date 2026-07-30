@@ -388,18 +388,55 @@ def animate(fig, g, sol, opened=None, n_steps: int = 24, duration: int = 90):
                  traces=[flow_idx])
         for k, (x, y, a, c, s) in enumerate(track)]
 
-    fig.update_layout(updatemenus=[dict(
-        type="buttons", direction="left", showactive=False,
-        x=0.01, xanchor="left", y=0.02, yanchor="bottom",
-        bgcolor="rgba(19,26,41,.9)", bordercolor=COLORS["border"], borderwidth=1,
-        font=dict(color=COLORS["accent"], size=11),
-        buttons=[
-            dict(label="▶  ENERGISE", method="animate",
-                 args=[None, dict(frame=dict(duration=duration, redraw=True),
-                                  transition=dict(duration=0),
-                                  fromcurrent=True, mode="immediate")]),
-            dict(label="⏸", method="animate",
-                 args=[[None], dict(frame=dict(duration=0, redraw=False),
-                                    mode="immediate")]),
-        ])])
+    # No play button. The frames are PRECOMPUTED -- animating costs the browser a
+    # couple of array swaps per frame and costs the server nothing at all, so
+    # making an operator press start to see a grid that is already running was
+    # only ever a Plotly default we failed to override. render_animated() starts
+    # it automatically and loops it.
+    fig._gridops_frame_ms = duration
     return fig
+
+
+def render_animated(fig, height: int = 660, key: str = "flow") -> None:
+    """Render a figure whose animation starts on load and loops forever.
+
+    Streamlit's st.plotly_chart cannot autostart a Plotly animation, so this
+    emits the figure as standalone HTML in a component iframe with
+    auto_play=True and a loop handler.
+
+    plotly.js is referenced from /app/static/ -- our own copy, served by this
+    container. Inlining it instead would add ~4.6 MB to every render; pulling it
+    from a CDN would be light but would break air-gapped, which is precisely the
+    deployment this demo argues for.
+    """
+    import streamlit as st
+
+    ms = getattr(fig, "_gridops_frame_ms", 90)
+    html = fig.to_html(
+        include_plotlyjs="/app/static/plotly.min.js",
+        full_html=False, auto_play=True, div_id=f"gridops-{key}",
+        config={"displayModeBar": False, "responsive": True})
+
+    # Restart on completion. Plotly emits plotly_animated when a run finishes.
+    loop = f"""
+<script>
+(function() {{
+  var tries = 0;
+  function arm() {{
+    var el = document.getElementById("gridops-{key}");
+    if (!el || !el.on) {{ if (tries++ < 80) setTimeout(arm, 100); return; }}
+    el.on("plotly_animated", function() {{
+      Plotly.animate(el, null, {{
+        frame: {{duration: {ms}, redraw: true}},
+        transition: {{duration: 0}},
+        mode: "immediate"
+      }});
+    }});
+  }}
+  arm();
+}})();
+</script>"""
+    # st.iframe, not st.components.v1.html -- the latter's removal date
+    # (2026-06-01) has already passed.
+    st.iframe(f'<div style="background:{COLORS["surface"]};margin:0">{html}{loop}</div>',
+              height=height)

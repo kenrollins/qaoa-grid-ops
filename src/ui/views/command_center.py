@@ -118,8 +118,8 @@ def render(spec, backend: dict, layers: int, pref: str, steps: int = 30,
 </div>""", unsafe_allow_html=True)
             st.markdown(cr.instrument_strip(sol, pf.cascade_risk(sol), "normal state"),
                         unsafe_allow_html=True)
-            st.plotly_chart(cr.animate(cr.one_line_diagram(base, sol), base, sol),
-                            width="stretch")
+            cr.render_animated(cr.animate(cr.one_line_diagram(base, sol), base, sol),
+                               key="normal")
 
         # ── Step 1 — the fault ──────────────────────────────────────────────
         elif step == 1:
@@ -146,9 +146,9 @@ def render(spec, backend: dict, layers: int, pref: str, steps: int = 30,
 </div>""", unsafe_allow_html=True)
             st.markdown(cr.instrument_strip(sol, risk, "no operator action taken"),
                         unsafe_allow_html=True)
-            st.plotly_chart(
+            cr.render_animated(
                 cr.animate(cr.one_line_diagram(faulted_graph, sol), faulted_graph, sol),
-                width="stretch")
+                key="fault")
             st.markdown(f'<div class="callout"><div class="h">Security assessment</div>'
                         f'<p>{risk["note"]} Highest loading <b>{risk["worst"]:.0f}%</b>.</p>'
                         f'</div>', unsafe_allow_html=True)
@@ -185,10 +185,10 @@ def render(spec, backend: dict, layers: int, pref: str, steps: int = 30,
 
             st.markdown(cr.instrument_strip(sol, risk, "islanding plan applied"),
                         unsafe_allow_html=True)
-            st.plotly_chart(
+            cr.render_animated(
                 cr.animate(cr.one_line_diagram(faulted_graph, sol, r, opened=opened),
                            faulted_graph, sol, opened=opened),
-                width="stretch")
+                key="islanded")
 
             st.markdown(_state_cards(run), unsafe_allow_html=True)
 

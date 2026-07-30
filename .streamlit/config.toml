@@ -5,6 +5,11 @@ headless = true
 fileWatcherType = "auto"
 # Partition schedules for a 24-substation grid are small; keep the default cap.
 maxUploadSize = 50
+# Serves static/ at /app/static/. Used for our own copy of plotly.min.js so the
+# auto-playing power-flow animation works with NO internet access. A CDN
+# reference would be 40x lighter on the page but would fail the moment this is
+# demonstrated air-gapped, which is the environment the whole demo is about.
+enableStaticServing = true
 
 [theme]
 base = "dark"

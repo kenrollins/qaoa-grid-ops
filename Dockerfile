@@ -25,6 +25,8 @@ RUN pip install --no-cache-dir -r requirements-ui.txt
 
 COPY app.py ./
 COPY .streamlit/ ./.streamlit/
+# Our own plotly.min.js, served at /app/static/ so animations work air-gapped.
+COPY static/ ./static/
 COPY src/ ./src/
 
 EXPOSE 8501
