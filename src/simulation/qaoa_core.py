@@ -268,7 +268,12 @@ def optimize_qaoa(
     p = int(layers)
     n_evals = 0
 
-    def energy_of(params: np.ndarray) -> float:
+    def energy_of(params: np.ndarray, diag=diag) -> float:
+        # `diag` is bound as a default argument, NOT captured from the enclosing
+        # scope: the enclosing `diag` is deleted at the end of this function to
+        # free 2ⁿ·8 bytes on the GPU, and a closure capture would make any later
+        # call raise NameError. The default binding keeps the array alive exactly
+        # as long as this function object.
         nonlocal n_evals
         n_evals += 1
         gammas, betas = params[:p], params[p:]
