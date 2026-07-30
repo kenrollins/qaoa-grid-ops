@@ -249,7 +249,7 @@ def optimize_qaoa(
     mode: str = "diagonal",
     custatevec_ctx=None,
     progress: Callable[[int, float], None] | None = None,
-    top_k: int = 12,
+    top_k: int = 64,
 ) -> QAOAResult:
     """Run QAOA end to end and report both the answer and how it was reached.
 

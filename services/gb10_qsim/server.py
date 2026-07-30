@@ -98,7 +98,7 @@ class OptimizeRequest(BaseModel):
     steps: int = Field(default=30, ge=1, le=400)
     mode: str = "diagonal"
     seed: int = 11
-    top_k: int = 12
+    top_k: int = 64
 
 
 class EvaluateRequest(BaseModel):

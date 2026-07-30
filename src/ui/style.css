@@ -206,3 +206,57 @@ code { color: var(--accent); background: var(--surface-alt); }
 }
 .spec td:last-child { color: var(--text); }
 .spec tr:last-child td { border-bottom: none; }
+
+/* ── Control room: instrument row ────────────────────────────────────────── */
+.instrument-row {
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: .5rem; margin: .2rem 0 .7rem;
+}
+@media (max-width: 1200px) { .instrument-row { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 700px)  { .instrument-row { grid-template-columns: repeat(2, 1fr); } }
+.instrument-row .metric { padding: .6rem .8rem; }
+.instrument-row .metric .value { font-size: 1.34rem; font-variant-numeric: tabular-nums; }
+.instrument-row .metric.crit .value { color: var(--crit); }
+.instrument-row .metric.warn .value { color: var(--warn); }
+.instrument-row .metric.ok   .value { color: var(--ok); }
+
+/* ── Control room: SCADA alarm log ───────────────────────────────────────── */
+.alarmlog {
+  background: #070b12; border: 1px solid var(--border); border-radius: 4px;
+  max-height: 330px; overflow-y: auto; font-family: var(--mono); font-size: .715rem;
+}
+.alarm {
+  display: grid; grid-template-columns: 84px 46px 1fr; gap: .55rem;
+  padding: .3rem .7rem; border-bottom: 1px solid rgba(36,49,73,.5); align-items: baseline;
+}
+.alarm:last-child { border-bottom: none; }
+.alarm .ts  { color: var(--ink3, #6f7a8c); font-variant-numeric: tabular-nums; }
+.alarm .src { color: var(--text-dim); letter-spacing: .06em; }
+.alarm .msg { color: var(--text); line-height: 1.45; }
+.alarm.crit { background: rgba(255,45,85,.09); }
+.alarm.crit .msg { color: #ff8fa6; font-weight: 600; }
+.alarm.crit .src { color: var(--crit); }
+.alarm.warn { background: rgba(255,200,87,.055); }
+.alarm.warn .msg { color: #ffd98a; }
+.alarm.warn .src { color: var(--warn); }
+.alarm.ok .msg { color: var(--ok); }
+.alarm.ok .src { color: var(--ok); }
+
+/* ── Control room: state selector strip ──────────────────────────────────── */
+.statebar { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; margin-bottom: .6rem; }
+@media (max-width: 800px) { .statebar { grid-template-columns: 1fr; } }
+.statecard {
+  background: var(--surface); border: 1px solid var(--border);
+  border-top: 3px solid var(--border); border-radius: 4px; padding: .7rem .9rem;
+}
+.statecard.secure  { border-top-color: var(--ok); }
+.statecard.elevated{ border-top-color: var(--warn); }
+.statecard.cascade { border-top-color: var(--crit); }
+.statecard .st {
+  font-family: var(--mono); font-size: .63rem; letter-spacing: .11em;
+  text-transform: uppercase; color: var(--text-dim);
+}
+.statecard .hl { font-size: 1.12rem; font-weight: 650; margin: .18rem 0; }
+.statecard.secure .hl  { color: var(--ok); }
+.statecard.elevated .hl{ color: var(--warn); }
+.statecard.cascade .hl { color: var(--crit); }
+.statecard .dt { font-size: .78rem; color: var(--text-dim); line-height: 1.5; }

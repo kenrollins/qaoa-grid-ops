@@ -50,6 +50,7 @@ from src.simulation.grid_model import (
     load_report,
     spectral_baseline,
 )
+from src.simulation import power_flow as pf
 from src.simulation import qaoa_core
 
 
@@ -187,6 +188,13 @@ class IslandingRun:
     baseline_report: PartitionReport | None = None
     baseline_load: LoadReport | None = None
 
+    # Solved DC power flow for the three states an operator compares. These are
+    # what the control-room view renders — every MW, loading %, and frequency on
+    # screen comes from one of these solutions.
+    flow_intact: "pf.FlowSolution | None" = None
+    flow_post_fault: "pf.FlowSolution | None" = None
+    flow_islanded: "pf.FlowSolution | None" = None
+
     @property
     def mw_shed_by_plan(self) -> float:
         """Load shed as the COST of separating. Islanding is never free."""
@@ -285,6 +293,10 @@ def run_islanding_optimization(
     """
     t0 = time.perf_counter()
     base = graph if graph is not None else build_grid(spec)
+    # Rate the lines against the INTACT network before anything is faulted.
+    # Calibrating on an already-faulted grid makes the fault look normal by
+    # construction — the post-fault case measured *below* intact loading.
+    base = pf.calibrate_ratings(base)
     g = apply_fault(base, fault or [])
     model = build_ising(g, spec.weights)
     backend = select_backend(backend_preference)
@@ -320,7 +332,20 @@ def run_islanding_optimization(
     else:
         result = _run_local(payload, backend)
 
-    report = evaluate_partition(g, model, result.get("best_bitstring", "0" * model.n_qubits))
+    # ── Physics-aware post-selection ─────────────────────────────────────────
+    # QAOA returns a DISTRIBUTION over partitions, not a single answer. Taking
+    # only the argmax throws that away — and the argmax is chosen by an objective
+    # with no notion of thermal limits, so it routinely returns a plan that
+    # balances generation while overloading a 70 MVA line (measured: 202% worst
+    # loading, against 137% for taking no action at all).
+    #
+    # So: screen the top measured states with a real DC power flow and keep the
+    # one that is electrically securest. This is the hybrid loop working as
+    # intended — the quantum stage proposes a shortlist, classical physics
+    # disposes. Every candidate here was produced by the circuit; none is
+    # invented classically.
+    report, selection = _select_plan(g, model, result, spec)
+    result["selection"] = selection
 
     exact = None
     if compute_exact and model.n_qubits <= exact_limit:
@@ -344,6 +369,12 @@ def run_islanding_optimization(
     base_bits = spectral_baseline(g)
     base_report = evaluate_partition(g, model, base_bits)
 
+    # Solve the three network states.
+    opened = {tuple(sorted((u, v))) for u, v, _ in report.severed_lines}
+    flow_intact = pf.solve(base)
+    flow_post_fault = pf.solve(g)
+    flow_islanded = pf.solve(g, opened=opened)
+
     return IslandingRun(
         graph=g,
         model=model,
@@ -359,7 +390,72 @@ def run_islanding_optimization(
         load_after_plan=load_report(g, [report.island_a, report.island_b]),
         baseline_report=base_report,
         baseline_load=load_report(g, [base_report.island_a, base_report.island_b]),
+        flow_intact=flow_intact,
+        flow_post_fault=flow_post_fault,
+        flow_islanded=flow_islanded,
     )
+
+
+def _plan_score(g: nx.Graph, model: IsingModel, bits: str) -> tuple:
+    """Rank a candidate partition the way an operator would.
+
+    Order of precedence: electrically viable first, then keep the lights on,
+    then stay within thermal ratings, then minimise disruption. Energy is the
+    last tiebreak — it is the proxy, not the goal.
+    """
+    rep = evaluate_partition(g, model, bits)
+    opened = {tuple(sorted((u, v))) for u, v, _ in rep.severed_lines}
+    sol = pf.solve(g, opened=opened)
+    # THERMAL SECURITY OUTRANKS LOAD SERVED. Ranking shed-MW first looks
+    # operator-friendly and is exactly wrong: it accepts a cascade to avoid
+    # shedding, and a cascade sheds everything. Measured on the default grid,
+    # shed-first chose a plan with 2 lines at 202% over available plans with
+    # zero overloads. Real practice is security-constrained: stay inside the
+    # ratings, THEN keep as much load on as possible.
+    return (
+        not rep.feasible,            # viable plans first
+        len(sol.overloads),          # then no line beyond rating
+        round(sol.worst_loading, 3), # then lowest peak loading
+        round(sol.shed_mw, 1),       # then keep load on
+        rep.interrupted_mw,          # then least disruption
+        rep.energy,                  # then the Hamiltonian's opinion
+    ), rep, sol
+
+
+def _select_plan(g: nx.Graph, model: IsingModel, result: dict, spec: GridSpec):
+    """Choose among the circuit's most probable outcomes using DC power flow."""
+    tops = result.get("top_states") or []
+    cands: list[str] = []
+    for s in tops:
+        b = s[0] if isinstance(s, (list, tuple)) else s.get("bitstring")
+        if b:
+            cands.append(b)
+    argmax = result.get("best_bitstring") or ("0" * model.n_qubits)
+    if argmax not in cands:
+        cands.insert(0, argmax)
+    if not cands:
+        cands = [argmax]
+
+    scored = [( _plan_score(g, model, b), b) for b in cands]
+    scored.sort(key=lambda t: t[0][0])
+    (best_key, best_rep, best_sol), best_bits = scored[0][0], scored[0][1]
+
+    arg_key = next((k for (k, _, _), b in scored if b == argmax), None)
+    selection = {
+        "candidates_screened": len(cands),
+        "chosen_bitstring": best_bits,
+        "chosen_was_argmax": best_bits == argmax,
+        "chosen_overloads": len(best_sol.overloads),
+        "chosen_worst_loading": round(best_sol.worst_loading, 3),
+        "chosen_shed_mw": best_sol.shed_mw,
+        # Indices track _plan_score's tuple order: (infeasible, overloads,
+        # worst_loading, shed, interrupted, energy).
+        "argmax_overloads": arg_key[1] if arg_key else None,
+        "argmax_worst_loading": arg_key[2] if arg_key else None,
+        "argmax_shed_mw": arg_key[3] if arg_key else None,
+    }
+    result["best_bitstring"] = best_bits
+    return best_rep, selection
 
 
 def _run_local(payload: dict, backend: BackendInfo) -> dict:

@@ -280,7 +280,15 @@ def build_ising(g: nx.Graph, weights: ObjectiveWeights) -> IsingModel:
     p = normalized_injections(g)
 
     live = live_edges(g)
-    flows = np.array([g.edges[u, v]["flow_mw"] for u, v in live], dtype=float) \
+    # Weight the cut by the ACTUAL solved base-case flow when power_flow has
+    # calibrated the network. `flow_mw` is a synthetic generator attribute that
+    # has no relationship to where power really goes, so minimising it optimised
+    # a fiction. `base_flow_mw` is the DC power flow result.
+    def _cut_weight(u, v) -> float:
+        e = g.edges[u, v]
+        return float(e.get("base_flow_mw", e["flow_mw"]))
+
+    flows = np.array([_cut_weight(u, v) for u, v in live], dtype=float) \
         if live else np.array([1.0])
     flow_denom = float(flows.max()) or 1.0
 
@@ -293,7 +301,7 @@ def build_ising(g: nx.Graph, weights: ObjectiveWeights) -> IsingModel:
 
     # 1. Flow severed by the cut — live lines only.
     for u, v in live:
-        w = g.edges[u, v]["flow_mw"] / flow_denom
+        w = _cut_weight(u, v) / flow_denom
         add(int(u), int(v), -weights.flow * w / 2.0)
 
     # 2. + 3. Balance and size — both dense, both all-to-all.

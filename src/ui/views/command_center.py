@@ -9,9 +9,36 @@ from __future__ import annotations
 import streamlit as st
 
 from src.simulation.grid_model import apply_fault, build_grid
+from src.simulation import power_flow as pf
 from src.simulation.qaoa_engine import scaling_probe, verify_fast_path
 from src.ui import components as ui
+from src.ui import control_room as cr
 from src.ui.views import quantum as quantum_view
+
+
+def _state_cards(run) -> str:
+    """Three states side by side — the whole story in one glance."""
+    states = [
+        ("Before the fault", run.flow_intact, "System intact and secure."),
+        ("Fault, no action", run.flow_post_fault, "What happens if nobody intervenes."),
+        ("Islanding applied", run.flow_islanded, "The plan QAOA returned."),
+    ]
+    out = []
+    for name, sol, sub in states:
+        if sol is None:
+            continue
+        r = pf.cascade_risk(sol)
+        hl = ("SECURE" if r["level"] == "secure"
+              else ("CASCADE RISK" if r["level"] == "cascade" else "ELEVATED"))
+        out.append(
+            f'<div class="statecard {r["level"]}"><div class="st">{name}</div>'
+            f'<div class="hl">{hl}</div>'
+            f'<div class="dt">{sub}<br>'
+            f'Peak line <b>{sol.worst_loading * 100:.0f}%</b> · '
+            f'{len(sol.overloads)} overload(s)<br>'
+            f'{sol.served_mw:,.0f} MW served · {sol.shed_mw:,.0f} MW shed · '
+            f'{sol.frequency_hz:.2f} Hz</div></div>')
+    return f'<div class="statebar">{"".join(out)}</div>'
 
 
 def render(spec, backend: dict, layers: int, pref: str,
@@ -69,43 +96,55 @@ def render(spec, backend: dict, layers: int, pref: str,
                 "; ".join(r.notes) if r.notes else "generation + contiguity verified",
                 kind="ok" if r.feasible else "crit"), unsafe_allow_html=True)
 
-            st.plotly_chart(ui.topology_figure(run.graph, r), width="stretch")
+            # ── Control-room view ────────────────────────────────────────
+            st.markdown(_state_cards(run), unsafe_allow_html=True)
 
-            # ── Load accounting: what the plan costs, and how it compares ────
-            if run.load_after_plan and run.baseline_load:
-                lp, lb, l0 = run.load_after_plan, run.baseline_load, run.load_before
-                delta = run.mw_better_than_baseline
-                cols = st.columns(3)
-                cols[0].markdown(ui.metric_html(
-                    "Load served — QAOA plan", f"{lp.served_mw:,.0f}", "MW",
-                    f"{lp.served_fraction * 100:.1f}% of {l0.total_load_mw:,.0f} MW demand · "
-                    f"{lp.shed_mw:,.0f} MW shed",
-                    kind="ok" if lp.shed_mw <= lb.shed_mw else "warn"), unsafe_allow_html=True)
-                cols[1].markdown(ui.metric_html(
-                    "Load served — classical baseline", f"{lb.served_mw:,.0f}", "MW",
-                    f"spectral bisection · {lb.shed_mw:,.0f} MW shed"
-                    + ("" if run.baseline_report.feasible else " · INFEASIBLE")),
-                    unsafe_allow_html=True)
-                cols[2].markdown(ui.metric_html(
-                    "QAOA vs classical", f"{delta:+,.0f}", "MW",
-                    "load kept on that spectral bisection sheds" if delta > 0
-                    else ("identical outcome" if abs(delta) < 0.5
-                          else "classical served more — see note"),
-                    kind="ok" if delta > 0.5 else ("crit" if delta < -0.5 else "")),
-                    unsafe_allow_html=True)
+            view = st.radio(
+                "Network state", ["① Before the fault", "② Fault — no action",
+                                  "③ After islanding"],
+                index=1, horizontal=True, label_visibility="collapsed",
+                help="Step through the contingency the way an operator lives it.")
 
-                if delta < -0.5:
-                    st.markdown(f"""
-<div class="callout">
-  <div class="h">Honest result — the classical baseline won this one</div>
-  <p>QAOA returned the <strong>true optimum of the stated objective</strong>
-  {'(verified by brute force)' if run.is_optimal else ''}, yet served
-  <strong>{abs(delta):,.0f} MW less</strong> than spectral bisection. That is a statement
-  about the <em>objective</em>, not the solver: the balance term penalises an island with
-  surplus generation exactly as hard as one with a deficit, though only deficits shed load.</p>
-  <p>Objective alignment is the open algorithm problem here, and it is the kind of thing
-  this platform exists to expose. Try raising <strong>Island power balance</strong>.</p>
-</div>""", unsafe_allow_html=True)
+            opened = {tuple(sorted((u, v))) for u, v, _ in r.severed_lines}
+            if view.startswith("①"):
+                sol, rep, shown_open, cap = run.flow_intact, None, set(), "Normal state"
+            elif view.startswith("②"):
+                sol, rep, shown_open, cap = (run.flow_post_fault, None, set(),
+                                             "Fault on the system, no operator action")
+            else:
+                sol, rep, shown_open, cap = (run.flow_islanded, r, opened,
+                                             "Islanding plan applied")
+
+            if sol is not None:
+                risk = pf.cascade_risk(sol)
+                st.markdown(cr.instrument_strip(sol, risk, cap), unsafe_allow_html=True)
+                st.plotly_chart(
+                    cr.one_line_diagram(run.graph, sol, rep, opened=shown_open),
+                    width="stretch")
+                if risk["level"] != "secure":
+                    st.markdown(
+                        f'<div class="callout"><div class="h">Security assessment</div>'
+                        f'<p>{risk["note"]} Highest loading <b>{risk["worst"]:.0f}%</b> '
+                        f'of rating.</p></div>', unsafe_allow_html=True)
+
+            log, side = st.columns([3, 2])
+            with log:
+                st.markdown("###### Event log")
+                st.markdown(cr.alarm_log(cr.build_events(run)), unsafe_allow_html=True)
+                st.caption("Sequence and content are derived from the solved power "
+                           "flow; timestamps are synthesised for presentation.")
+            with side:
+                sel = run.result.get("selection") or {}
+                st.markdown(ui.card_html("How this plan was chosen", f"""
+<p>QAOA returns a <strong>distribution</strong> over partitions, not one answer. The top
+<strong>{sel.get('candidates_screened', 0)}</strong> measured states were each screened with a
+DC power flow, and the electrically securest was kept.</p>
+<p>{'The most probable outcome was also the best.' if sel.get('chosen_was_argmax')
+   else f"A <strong>lower-probability</strong> candidate won: the most likely one peaked at "
+        f"{(sel.get('argmax_worst_loading') or 0) * 100:.0f}% loading, the chosen plan at "
+        f"{(sel.get('chosen_worst_loading') or 0) * 100:.0f}%."}</p>
+<p>This is the hybrid loop as intended — the quantum stage proposes, classical physics
+disposes. Every candidate came off the circuit.</p>"""), unsafe_allow_html=True)
 
             left, right = st.columns([3, 2])
             with left:

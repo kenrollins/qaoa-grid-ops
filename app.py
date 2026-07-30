@@ -16,7 +16,8 @@ from src.config.settings import (
     GridSpec, LAYERS_DEFAULT, LAYERS_MAX, LAYERS_MIN, ObjectiveWeights,
     QUBIT_DEFAULT, QUBIT_MAX, QUBIT_MIN, STEPS_DEFAULT, STEPS_MAX, STEPS_MIN,
 )
-from src.simulation.grid_model import build_grid, most_critical_line
+from src.simulation.grid_model import build_grid
+from src.simulation.power_flow import calibrate_ratings, worst_contingency
 from src.simulation.qaoa_engine import run_islanding_optimization, select_backend
 from src.ui import components as ui
 from src.ui.views import architecture as architecture_view
@@ -71,10 +72,10 @@ spec = GridSpec(n_nodes=n_nodes, seed=int(seed),
 
 # Resolve the fault against THIS grid. Done here, above the navigation, so the
 # selector can list real line names and both pages see the same contingency.
-_grid = build_grid(spec)
+_grid = calibrate_ratings(build_grid(spec))
 fault: list[tuple[int, int]] = []
 if fault_mode == "Trip the most critical line":
-    crit = most_critical_line(_grid)
+    crit = worst_contingency(_grid)
     if crit:
         fault = [crit]
 elif fault_mode == "Choose a line":
