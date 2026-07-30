@@ -226,7 +226,7 @@ is more valuable to this audience than hiding it.
 
 Not yet a registered tenant — **no VLAN-13 address, no Caddy route, no Authentik
 app, no public DNS.** It runs on xr7620 at `:8501` and reaches the GB10 directly
-at `10.0.13.200:8600`. See PLAN.md M4 and `/data/code/dmz/ONBOARDING.md`.
+at the compute service endpoint. See PLAN.md M4 for deployment.
 
 ⚠ **`nim-llama8b` on the GB10 is currently STOPPED.** It was holding 59 GB of the
 GB10's unified memory (leaving only 5.8 GB, a ~27-qubit ceiling). Restart with

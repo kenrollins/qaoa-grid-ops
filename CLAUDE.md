@@ -15,11 +15,10 @@ dispatches via `st.navigation` to two pages in `src/ui/views/`:
 **Command Center** (`command_center.py` — 4 tabs, incl. `quantum.py`, the
 audience explainer) and **Architecture** (`architecture.py`).
 
-This app **is a registered lab tenant** — see `LAB.md` for its allocation, and
-`/data/code/dmz/ONBOARDING.md` for the platform contract (follow it, don't copy it).
-Live at **https://qaoa-grid-ops.lab.kenrollins.dev** (passkey) → `10.0.13.103:8501`,
-containerized on `dmz13` from `/data/docker/qaoa-grid-ops/`. Linked from the
-portal's Demo Floor, which reads live GB10 state via the portal's `/api/gridops`.
+Deployment is environment-specific and lives outside this repository. In the
+authoring environment it runs as a container on an isolated VLAN behind an
+identity proxy; `LAB.md` (git-ignored) records that allocation. Nothing in the
+application depends on it — set `GB10_QSIM_URL` and it runs anywhere.
 
 ## Stack
 

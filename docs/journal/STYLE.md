@@ -4,9 +4,9 @@ These notes exist to make quantum optimization **comprehensible and checkable**
 to scientists, engineers, and technical leaders evaluating the field. They are
 not a development diary and they are not marketing.
 
-The gemma-forge journal (`/data/code/gemma-forge/docs/journal/STYLE.md`) is a
-behind-the-scenes build narrative for practitioners. This series is deliberately
-a different instrument. Do not import that voice.
+A sibling project in this lab keeps a build journal written as a
+behind-the-scenes narrative for practitioners. This series is deliberately a
+different instrument. Do not import that voice.
 
 ## What a reader should get
 

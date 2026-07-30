@@ -102,7 +102,7 @@ statevector ≈ 1 TB of traffic, and the GB10's unified memory does ~270 GB/s.
       kept reading the orphaned original while the host showed `:8501`. Anonymous
       `curl` had "verified" it as 302 — but forward-auth answers BEFORE the
       upstream is dialed, so that check could never have caught it. See
-      `/data/code/dmz/ONBOARDING.md`.
+      the platform onboarding contract.
 - [ ] Expose `/metrics` for Prometheus (`10.0.13.203`).
 - [ ] The minted gateway key in `/data/docker/qaoa-grid-ops/.env` is **unused** —
       this demo makes no inference calls. Harmless, but don't let it imply one.

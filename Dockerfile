@@ -6,7 +6,7 @@
 #
 # It gets a dmz13 macvlan address so Caddy (10.0.13.3) can reach it — a
 # container on a plain bridge is NOT reachable from Caddy and is NOT isolated
-# from the LAN. See /data/code/dmz/ONBOARDING.md.
+# from the LAN.
 FROM python:3.12-slim
 
 ENV PYTHONUNBUFFERED=1 \
@@ -25,8 +25,14 @@ RUN pip install --no-cache-dir -r requirements-ui.txt
 
 COPY app.py ./
 COPY .streamlit/ ./.streamlit/
-# Our own plotly.min.js, served at /app/static/ so animations work air-gapped.
-COPY static/ ./static/
+
+# Serve our own plotly.js at /app/static/ so the flow animation runs with no
+# internet access. Taken from the installed package rather than vendored into
+# git, so it can never drift from the plotly version actually in use.
+RUN mkdir -p static \
+ && python -c "import plotly, shutil, pathlib; \
+src = pathlib.Path(plotly.__file__).parent / 'package_data' / 'plotly.min.js'; \
+shutil.copy(src, pathlib.Path('static') / 'plotly.min.js')"
 COPY src/ ./src/
 
 EXPOSE 8501

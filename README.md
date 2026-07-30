@@ -139,3 +139,17 @@ diagonal fast path matches gate-by-gate RZZ to **8.0e-17**.
 Python **3.12** (`qiskit-aer-gpu` has no 3.13 wheel; `qiskit` pinned `<2` for
 Aer 0.15.1 compatibility). GB10 side needs `cuquantum-python-cu12`, `cupy-cuda12x`,
 `fastapi`, `uvicorn` — all with aarch64 wheels.
+
+## License
+
+Apache License 2.0 — see [LICENSE](LICENSE). Chosen over MIT for its explicit
+patent grant, which matters more in corporate and government evaluation
+contexts.
+
+## A note on what this is
+
+A technical demonstrator and a set of measured findings, not a production grid
+tool. The power-flow model is a DC approximation, the noise model is generic
+depolarizing rather than device-calibrated, and the grid topologies are
+synthetic. Every claim carries its provenance — measured, computed, or cited —
+and the limits are stated where the results are presented.

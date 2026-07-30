@@ -33,7 +33,7 @@ COLORS: dict[str, str] = {
 # ── Compute backend ──────────────────────────────────────────────────────────
 # The GB10 is the product. `local` exists only so the UI still functions while
 # the GB10 is busy serving inference — it is NOT the story.
-GB10_QSIM_URL: str = os.getenv("GB10_QSIM_URL", "http://10.0.13.200:8600")
+GB10_QSIM_URL: str = os.getenv("GB10_QSIM_URL", "http://127.0.0.1:8600")
 GB10_REQUEST_TIMEOUT: int = int(os.getenv("GB10_REQUEST_TIMEOUT", "600"))
 DEFAULT_BACKEND: str = os.getenv("GRIDOPS_BACKEND", "gb10")  # gb10 | local
 
