@@ -30,6 +30,7 @@ sys.path.insert(0, os.getenv("GRIDOPS_ROOT", "/opt/gridops"))
 from fastapi import FastAPI, HTTPException  # noqa: E402
 from pydantic import BaseModel, Field  # noqa: E402
 
+from src.simulation import noise as nz  # noqa: E402
 from src.simulation import qaoa_core  # noqa: E402
 
 app = FastAPI(title="gridops-qsim", version="1.0")
@@ -106,6 +107,16 @@ class EvaluateRequest(BaseModel):
     couplings: list[tuple[int, int, float]]
     offset: float = 0.0
     layers: int = Field(default=2, ge=1, le=8)
+
+
+class RealismRequest(BaseModel):
+    n_qubits: int = Field(ge=2, le=18)   # density matrix is 2^(2n) -- 18 is 69 GB
+    couplings: list[tuple[int, int, float]]
+    offset: float = 0.0
+    gammas: list[float]
+    betas: list[float]
+    shots: int = Field(default=2048, ge=16, le=1_000_000)
+    depolarizing: float = Field(default=0.01, ge=0.0, le=0.5)
 
 
 class EquivalenceRequest(BaseModel):
@@ -206,3 +217,53 @@ def verify(req: EquivalenceRequest) -> dict:
         )
     finally:
         cp.get_default_memory_pool().free_all_blocks()
+
+
+@app.get("/noise/ceiling")
+def noise_ceiling() -> dict:
+    """How many qubits can be simulated WITH noise on this box, right now.
+
+    The headline comparison of the whole demo: same machine, same free memory,
+    roughly half the qubits once a density matrix is required.
+    """
+    st = _device_state()
+    if not st["ok"]:
+        raise HTTPException(503, f"GPU unavailable: {st.get('detail')}")
+    free = st["free_memory_bytes"]
+    return {
+        "free_memory_bytes": free,
+        "max_qubits_clean": st["max_qubits"],
+        "max_qubits_noisy": nz.max_noisy_qubits(free),
+        "device": st["device"],
+    }
+
+
+@app.post("/qaoa/realism")
+def realism(req: RealismRequest) -> dict:
+    """Run the same circuit ideal / finite-shot / noisy and return all three."""
+    cp = _cupy()
+    st = _device_state()
+    if not st["ok"]:
+        raise HTTPException(503, f"GPU unavailable: {st.get('detail')}")
+
+    ceiling = nz.max_noisy_qubits(st["free_memory_bytes"])
+    if req.n_qubits > ceiling:
+        raise HTTPException(
+            507,
+            f"{req.n_qubits} qubits needs a density matrix of "
+            f"{nz.density_matrix_bytes(req.n_qubits) / 2**30:.1f} GiB; the noisy ceiling "
+            f"on this device right now is {ceiling} qubits "
+            f"(clean ceiling is {st['max_qubits']}). This IS the wall.")
+    try:
+        res = nz.compare_realism(
+            req.n_qubits, [(i, j, v) for i, j, v in req.couplings], req.offset,
+            req.gammas, req.betas, shots=req.shots,
+            depolarizing=req.depolarizing, xp=cp)
+    except cp.cuda.memory.OutOfMemoryError as exc:
+        raise HTTPException(507, f"GPU out of memory building the density matrix: {exc}") from exc
+    finally:
+        cp.get_default_memory_pool().free_all_blocks()
+
+    return {"backend": "gb10", "device": st["device"],
+            "max_qubits_clean": st["max_qubits"], "max_qubits_noisy": ceiling,
+            "results": [r.to_dict() for r in res]}

@@ -16,6 +16,7 @@ from src.simulation.qaoa_engine import (
 from src.ui import components as ui
 from src.ui import control_room as cr
 from src.ui.views import limits as limits_view
+from src.ui.views import sources as sources_view
 from src.ui.views import quantum as quantum_view
 
 
@@ -51,11 +52,12 @@ def render(spec, backend: dict, layers: int, pref: str, steps: int = 30,
     free_gb = backend.get("free_memory_bytes", 0) / 2**30
     total_gb = backend.get("total_memory_bytes", 0) / 2**30
 
-    tab1, tab2, tab3, tab4 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "🗺️  Grid Topology & Microgrid Islanding",
         "⚛️  The Quantum Part",
         "🔬  Under the Hood: Circuit & Qubit Operations",
         "📊  Simulation Capability",
+        "📚  Sources & Further Reading",
     ])
 
     # ── Tab 1 — the scenario, stepped ────────────────────────────────────────
@@ -333,3 +335,7 @@ size.</p>"""), unsafe_allow_html=True)
 
         st.plotly_chart(ui.memory_figure(ceiling_bytes=backend.get("free_memory_bytes", 0)),
                         width="stretch")
+
+    # ── Tab 5 — sources ──────────────────────────────────────────────────────
+    with tab5:
+        sources_view.render()

@@ -19,6 +19,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from src.config.settings import COLORS
+from src.simulation.qaoa_engine import run_realism
 from src.ui import components as ui
 
 # Measured on this lab's hardware. Dated because hardware claims rot.
@@ -340,6 +341,61 @@ FLOP-bound, and why unified memory on the GB10 matters more than raw compute.
   <p>Both were found by checking against brute force, which is only affordable below ~20
   qubits. Above that, an algorithm can be quietly, confidently wrong — which is precisely why
   the development regime, where truth is still computable, is the regime that matters.</p>
+</div>""", unsafe_allow_html=True)
+
+    st.markdown("### See it for yourself — the same circuit, three degrees of reality")
+    if run is None:
+        st.info("Run an optimization on the Command Center tab to enable this — it reuses "
+                "that run's optimized (γ, β) so all three regimes are compared fairly.")
+    else:
+        cc = st.columns([1, 1, 2])
+        shots = cc[0].select_slider("Shots", [64, 256, 1024, 4096, 16384], value=1024,
+                                    help="Measurements taken off the device. Real hardware "
+                                         "gives you samples, never the exact expectation.")
+        noise_pct = cc[1].select_slider("Gate error", [0.0, 0.5, 1.0, 2.0, 5.0, 10.0],
+                                        value=2.0, format_func=lambda v: f"{v}%",
+                                        help="Depolarizing error per qubit per layer.")
+        if cc[2].button("⚗️  Run all three on the GB10", type="primary"):
+            params = run.result.get("best_params", [])
+            pp = run.result.get("layers", 2)
+            with st.spinner("Ideal, then finite-shot, then a full density matrix…"):
+                st.session_state["realism"] = run_realism(
+                    run.model, params[:pp], params[pp:], shots=shots,
+                    depolarizing=noise_pct / 100.0)
+
+        rz = st.session_state.get("realism")
+        if rz:
+            if rz.get("error"):
+                st.error(f"Could not run: {rz['error']}")
+            else:
+                cols = st.columns(3)
+                for col, r in zip(cols, rz.get("results", [])):
+                    mem = r["memory_bytes"]
+                    memtxt = (f"{mem / 2**30:.2f} GB" if mem >= 2**30
+                              else f"{mem / 2**20:.1f} MB" if mem >= 2**20
+                              else f"{mem / 1024:.0f} KB")
+                    kind = ("ok" if r["label"] == "Ideal"
+                            else "warn" if r.get("shots") else "crit")
+                    extra = (f"±{r['shot_error']:.3f} statistical"
+                             if r.get("shot_error") is not None
+                             else (f"purity {r['purity']:.3f}" if r.get("purity") is not None
+                                   else ""))
+                    col.markdown(ui.metric_html(
+                        r["label"], f"{r['energy']:.3f}", " ⟨H⟩",
+                        f"{memtxt} · {r['seconds']:.2f}s · {extra}", kind),
+                        unsafe_allow_html=True)
+                for r in rz.get("results", []):
+                    st.caption(f"**{r['label']}** — {r['note']}")
+
+                clean, noisy = rz.get("max_qubits_clean"), rz.get("max_qubits_noisy")
+                if clean and noisy:
+                    st.markdown(f"""
+<div class="callout" style="border-left-color:var(--crit)">
+  <div class="h" style="color:var(--crit)">Measured on this machine, right now</div>
+  <p>Same GB10, same free memory, this second:
+  <b>{clean} qubits</b> clean, <b>{noisy} qubits</b> with noise. Not arithmetic —
+  the service reports both ceilings from its actual available memory. Turning on the
+  physics that makes an algorithm real costs you more than half your problem size.</p>
 </div>""", unsafe_allow_html=True)
 
     st.markdown("### Where classical compute falls off the cliff")

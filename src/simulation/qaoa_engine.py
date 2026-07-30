@@ -574,3 +574,41 @@ def verify_fast_path(model: IsingModel, layers: int = 2,
     out["backend"] = backend.name
     out["device"] = backend.device
     return out
+
+
+def run_realism(model: IsingModel, gammas, betas, shots: int = 2048,
+                depolarizing: float = 0.01,
+                backend_preference: str = DEFAULT_BACKEND) -> dict:
+    """Ideal vs finite-shot vs noisy, on the live backend.
+
+    Capped at 14 qubits by default from the caller: the density matrix is
+    2^(2n), so 14 qubits is already 4 GB and 17 is 256 GB. That cap is not a
+    limitation of the demo, it IS the demo.
+    """
+    backend = select_backend(backend_preference)
+    payload = {
+        "n_qubits": model.n_qubits,
+        "couplings": [[i, j, v] for (i, j), v in model.couplings.items()],
+        "offset": model.offset,
+        "gammas": list(gammas), "betas": list(betas),
+        "shots": int(shots), "depolarizing": float(depolarizing),
+    }
+    if backend.name == "gb10" and backend.available:
+        try:
+            return _http_json(f"{GB10_QSIM_URL}/qaoa/realism", payload,
+                              timeout=GB10_REQUEST_TIMEOUT)
+        except Exception as exc:
+            return {"error": f"{type(exc).__name__}: {exc}", "backend": "gb10"}
+
+    from src.simulation import noise as nz
+    xp: Any = np
+    if backend.name == "local-gpu":
+        import cupy as cp
+        xp = cp
+    res = nz.compare_realism(
+        model.n_qubits, [(i, j, v) for i, j, v in payload["couplings"]],
+        model.offset, gammas, betas, shots=shots, depolarizing=depolarizing, xp=xp)
+    return {"backend": backend.name, "device": backend.device,
+            "max_qubits_clean": backend.max_qubits,
+            "max_qubits_noisy": nz.max_noisy_qubits(backend.free_memory_bytes or 2**33),
+            "results": [r.to_dict() for r in res]}

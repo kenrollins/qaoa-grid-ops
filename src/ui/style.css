@@ -297,3 +297,25 @@ code { color: var(--accent); background: var(--surface-alt); }
 .spec.buys td.v { text-align: left; font-variant-numeric: tabular-nums; }
 .spec.buys tr:last-child td { border-bottom: none; }
 p.fine { color: var(--text-dim); font-size: .78rem; line-height: 1.6; margin-top: .5rem; }
+
+/* ── Sources ─────────────────────────────────────────────────────────────── */
+.source {
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 3px solid var(--accent-dim); border-radius: 4px;
+  padding: .8rem 1.05rem; margin-bottom: .55rem;
+}
+.source .srchead { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; }
+.source .srchead a {
+  color: var(--accent); text-decoration: none; font-size: .97rem; font-weight: 600;
+}
+.source .srchead a:hover { text-decoration: underline; }
+.srckind {
+  font-family: var(--mono); font-size: .6rem; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--island-b);
+  border: 1px solid rgba(255,159,28,.4); border-radius: 2px; padding: .1rem .4rem;
+}
+.source .srcwhat, .source .srcused {
+  color: var(--text-dim); font-size: .855rem; line-height: 1.62; margin-top: .4rem;
+}
+.source .srcwhat b, .source .srcused b { color: var(--text); font-weight: 650; }
+.source .srcused { border-top: 1px solid var(--border); padding-top: .4rem; }
