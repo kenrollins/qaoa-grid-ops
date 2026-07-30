@@ -108,7 +108,7 @@ class EvaluateRequest(BaseModel):
 
 
 class RealismRequest(BaseModel):
-    n_qubits: int = Field(ge=2, le=18)   # density matrix is 2^(2n) -- 18 is 69 GB
+    n_qubits: int = Field(ge=2, le=18)   # density matrix is 2^(2n) -- 16 is 69 GiB, 18 is 1 TiB
     couplings: list[tuple[int, int, float]]
     offset: float = 0.0
     gammas: list[float]
