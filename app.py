@@ -74,7 +74,7 @@ with st.sidebar:
                         format_func=lambda x: {"gb10": "Dell Pro Max GB10 (cuStateVec)",
                                                "local": "This host", "auto": "Auto"}[x])
     seed = st.number_input("Grid seed", 1, 9999, 7, help="Deterministic topology.")
-    run_clicked = st.button("🚀 Run Hybrid Optimization", width="stretch", type="primary")
+    run_clicked = st.button("ENGAGE SEQUENCE", width="stretch", type="primary")
 
 spec = GridSpec(n_nodes=n_nodes, seed=int(seed),
                 weights=ObjectiveWeights(flow=w_flow, balance=w_bal, size=w_size))

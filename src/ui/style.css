@@ -1,22 +1,25 @@
-/* Grid Ops — Federal Grid Operations Command Center
-   Dark operations-room aesthetic: near-black field, raised instrument panels,
-   Dell cyan reserved for live/actionable state so it never becomes decoration. */
+@import url('https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;600;700&display=swap');
+
+/* Grid Ops — Hybrid Quantum-Classical Command Center
+   Deep black with darkened blue accents, vector line aesthetics,
+   phosphor glow for retro/future sci-fi atmosphere. */
 
 :root {
-  --bg: #0a0e17;
-  --surface: #131a29;
-  --surface-alt: #1a2438;
-  --border: #243149;
-  --accent: #00c8ff;
-  --accent-dim: #0a7ea4;
+  --bg: #000000;
+  --surface: #0d0d0d;
+  --surface-alt: #0d1a26;
+  --border: #0d1a26;
+  --accent: #0099CC;
+  --accent-dim: #006699;
   --text: #e6edf7;
-  --text-dim: #8fa3c0;
+  --text-dim: #6a8fa3;
   --ok: #3ddc97;
   --warn: #ffc857;
   --crit: #ff5c5c;
-  --island-a: #00c8ff;
+  --island-a: #0099CC;
   --island-b: #ff9f1c;
-  --mono: "SF Mono", "JetBrains Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  --mono: "JetBrains Mono", "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  --serif: "EB Garamond", Georgia, serif;
 }
 
 .stApp { background: var(--bg); color: var(--text); }
@@ -26,13 +29,25 @@
 .gridops-header {
   display: flex; align-items: center; justify-content: space-between;
   gap: 1.5rem; flex-wrap: wrap;
-  padding: 1rem 1.4rem; margin-bottom: 1.2rem;
-  background: linear-gradient(100deg, #0d1626 0%, #131a29 55%, #0f1b2e 100%);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
-  border-radius: 4px;
+  padding: 2rem 2.5rem; margin-bottom: 1.2rem;
+  background:
+    linear-gradient(90deg, transparent 0%, transparent calc(100% - 1px), #0d1a26 calc(100% - 1px), #0d1a26 100%),
+    linear-gradient(0deg, transparent 0%, transparent calc(100% - 1px), #0d1a26 calc(100% - 1px), #0d1a26 100%);
+  background-size: 80px 80px;
+  border-bottom: 2px solid var(--accent);
+  border-radius: 0;
+  position: relative;
+  overflow: hidden;
 }
-.gridops-header .title { font-size: 1.42rem; font-weight: 650; letter-spacing: .015em; }
+.gridops-header::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(180deg, rgba(0, 153, 204, 0.08) 0%, rgba(0, 0, 0, 0.98) 100%);
+  pointer-events: none;
+}
+.gridops-header > * { position: relative; z-index: 1; }
+.gridops-header .title { font-family: var(--serif); font-size: 3.8rem; font-weight: 700; letter-spacing: -.01em; line-height: 1; }
 .gridops-header .title .accent { color: var(--accent); }
 .gridops-header .sub {
   font-family: var(--mono); font-size: .72rem; color: var(--text-dim);
@@ -75,13 +90,15 @@
 
 /* Metric readouts — numbers are the point, so they get the weight. */
 .metric { background: var(--surface); border: 1px solid var(--border);
-  border-left: 2px solid var(--accent); border-radius: 3px; padding: .7rem .9rem; }
+  border-left: 2px solid var(--accent); border-radius: 0; padding: 1.5rem .9rem;
+  transition: all 0.3s ease; }
+.metric:hover { border-left: 3px solid var(--accent); }
 .metric .label {
-  font-family: var(--mono); font-size: .64rem; letter-spacing: .1em;
-  text-transform: uppercase; color: var(--text-dim);
+  font-family: var(--mono); font-size: .7rem; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--text-dim); font-weight: 700;
 }
-.metric .value { font-size: 1.5rem; font-weight: 650; color: var(--text); line-height: 1.25; }
-.metric .unit { font-size: .8rem; color: var(--text-dim); font-weight: 400; margin-left: .2rem; }
+.metric .value { font-family: var(--serif); font-size: 2.6rem; font-weight: 700; color: var(--text); line-height: 1; }
+.metric .unit { font-size: .75rem; color: var(--accent); font-weight: 600; margin-left: .2rem; text-transform: uppercase; letter-spacing: .06em; }
 .metric .note { font-family: var(--mono); font-size: .64rem; color: var(--text-dim); margin-top: .2rem; }
 .metric.ok { border-left-color: var(--ok); }
 .metric.warn { border-left-color: var(--warn); }
@@ -114,28 +131,49 @@
 }
 
 /* ── Streamlit chrome ────────────────────────────────────────────────────── */
-section[data-testid="stSidebar"] { background: #0c1220; border-right: 1px solid var(--border); }
+section[data-testid="stSidebar"] { background: #0d0d0d; border-right: 1px solid var(--border); }
 section[data-testid="stSidebar"] h2 {
-  font-family: var(--mono); font-size: .72rem; letter-spacing: .11em;
-  text-transform: uppercase; color: var(--accent);
+  font-family: var(--mono); font-size: .75rem; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--accent); font-weight: 700;
+}
+section[data-testid="stSidebar"] label {
+  font-size: .75rem; color: var(--text-dim) !important; font-weight: 600;
+}
+section[data-testid="stSidebar"] input {
+  font-size: .8rem !important;
 }
 
-.stTabs [data-baseweb="tab-list"] { gap: .3rem; border-bottom: 1px solid var(--border); }
+.stTabs [data-baseweb="tab-list"] { gap: 0; border-bottom: 1px solid var(--border); }
 .stTabs [data-baseweb="tab"] {
-  background: transparent; color: var(--text-dim); border-radius: 3px 3px 0 0;
-  padding: .5rem .95rem; font-size: .86rem;
+  background: transparent; color: var(--text-dim); border-radius: 0;
+  padding: 1rem 1.25rem; font-size: .7rem; font-family: var(--mono); letter-spacing: .08em;
+  text-transform: uppercase; font-weight: 600;
 }
 .stTabs [aria-selected="true"] {
-  background: var(--surface); color: var(--accent);
+  background: transparent; color: #ffffff;
   border-bottom: 2px solid var(--accent);
 }
 
 .stButton > button {
-  background: var(--accent-dim); color: #041017; border: 1px solid var(--accent);
-  border-radius: 3px; font-weight: 650; letter-spacing: .03em; transition: all .15s ease;
+  background: var(--accent); color: #000000; border: 2px solid var(--accent);
+  border-radius: 0; font-family: var(--mono); font-weight: 700; letter-spacing: .12em;
+  font-size: 1rem; padding: 1.5rem 1.25rem !important;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 30px rgba(0, 153, 204, 0.6), inset 0 0 15px rgba(0, 153, 204, 0.4);
+  animation: phosphorThrob 2.2s ease-in-out infinite;
 }
 .stButton > button:hover {
-  background: var(--accent); color: #04121a; box-shadow: 0 0 14px rgba(0,200,255,.28);
+  background: #00CCFF; color: #000000; border-color: #00CCFF;
+  box-shadow: 0 0 60px rgba(0, 204, 255, 1), inset 0 0 30px rgba(0, 204, 255, 0.7);
+  transform: scale(1.03);
+}
+@keyframes phosphorThrob {
+  0%, 100% {
+    box-shadow: 0 0 30px rgba(0, 153, 204, 0.6), inset 0 0 15px rgba(0, 153, 204, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 50px rgba(0, 153, 204, 0.9), inset 0 0 25px rgba(0, 153, 204, 0.6);
+  }
 }
 
 div[data-testid="stMetricValue"] { color: var(--text); }
