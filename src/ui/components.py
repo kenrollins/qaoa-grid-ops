@@ -186,10 +186,22 @@ def scaling_figure(rows: list[dict], ceiling: int | None = None) -> go.Figure:
     ))
     blocked = [r for r in rows if not r.get("seconds")]
     if blocked:
+        # Full-height hatched bars, NOT zero-height. "Where the machine stops"
+        # is the most important data point of the capability story and it was
+        # rendering as a legend entry with nothing in the plot — doubly invisible
+        # here because the y-axis is logarithmic, so a zero-height bar has no
+        # representable extent at all. The reader saw an absence with no way to
+        # know it meant anything.
+        top = max((r["seconds"] for r in ok), default=1.0) * 4
         fig.add_trace(go.Bar(
             x=[r["n_qubits"] for r in blocked],
-            y=[0] * len(blocked), name="Exceeds available memory",
-            marker=dict(color=COLORS["crit"]),
+            y=[top] * len(blocked), name="Does not fit — exceeds memory",
+            marker=dict(color="rgba(255,45,85,.20)",
+                        pattern=dict(shape="/", fgcolor=COLORS["crit"], size=6),
+                        line=dict(color=COLORS["crit"], width=1.5)),
+            customdata=[[r["working_set_bytes"] / 2**30] for r in blocked],
+            hovertemplate=("%{x} qubits<br>needs %{customdata[0]:,.1f} GiB<br>"
+                           "<b>does not fit on this backend</b><extra></extra>"),
         ))
     if ceiling:
         fig.add_vline(

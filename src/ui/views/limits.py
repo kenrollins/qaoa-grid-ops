@@ -94,11 +94,28 @@ def memory_wall_figure() -> go.Figure:
         line=dict(color=COLORS["crit"], width=3, dash="dash"),
         hovertemplate="%{x} qubits<br>%{y:,.3g} GB<extra>density matrix</extra>"))
 
-    for label, cap, color in TIERS:
+    # Explicit paper-anchored annotations rather than add_hline's built-in
+    # labels: those come out with xref="x domain", which did not render at all
+    # in the static export. These are the whole reason the chart exists, so they
+    # get a background chip and cannot be allowed to quietly disappear.
+    # y in LOG10 UNITS. On a log axis Plotly interprets data-referenced
+    # annotation coordinates as exponents, so y=128 meant 10^128 — far
+    # off-scale, and every tier label silently vanished while the lines
+    # themselves rendered correctly (add_hline converts the shape position but
+    # passes the annotation's y through untouched).
+    #
+    # Labels alternate left/right: the two closest tiers are 96 GB and 128 GB,
+    # a factor of 1.3, which on a log axis put their labels on top of each other.
+    for i, (label, cap, color) in enumerate(sorted(TIERS, key=lambda x: x[1])):
         gb = cap / 2**30
-        fig.add_hline(y=gb, line=dict(color=color, width=1.2, dash="dot"),
-                      annotation_text=f"  {label}", annotation_position="top left",
-                      annotation_font=dict(color=color, size=10))
+        left = i % 2 == 0
+        fig.add_hline(y=gb, line=dict(color=color, width=1.3, dash="dot"))
+        fig.add_annotation(
+            xref="paper", x=0.012 if left else 0.988,
+            y=math.log10(gb), yref="y", text=label, showarrow=False,
+            xanchor="left" if left else "right", yanchor="bottom",
+            font=dict(color=color, size=10),
+            bgcolor="rgba(7,11,18,.86)", borderpad=2)
 
     # Where the GB10 actually lands on each curve.
     gb10 = 128 * 2**30
@@ -106,14 +123,14 @@ def memory_wall_figure() -> go.Figure:
         x=[_qubits_for(gb10, False)], y=[gb10 / 2**30], mode="markers+text",
         marker=dict(size=14, color=COLORS["accent"], symbol="diamond",
                     line=dict(color=COLORS["bg"], width=2)),
-        text=["  33 qubits clean"], textposition="middle right",
+        text=["33 qubits clean  "], textposition="top left",
         textfont=dict(color=COLORS["accent"], size=11), showlegend=False,
         hovertemplate="GB10 clean ceiling<extra></extra>"))
     fig.add_trace(go.Scatter(
         x=[_qubits_for(gb10, True)], y=[gb10 / 2**30], mode="markers+text",
         marker=dict(size=14, color=COLORS["crit"], symbol="diamond",
                     line=dict(color=COLORS["bg"], width=2)),
-        text=["16 qubits noisy  "], textposition="middle left",
+        text=["  16 qubits noisy"], textposition="bottom right",
         textfont=dict(color=COLORS["crit"], size=11), showlegend=False,
         hovertemplate="GB10 noisy ceiling<extra></extra>"))
 
@@ -124,8 +141,13 @@ def memory_wall_figure() -> go.Figure:
         title=dict(text="The wall — memory required to simulate n qubits", font=dict(size=14)),
         legend=dict(bgcolor="rgba(7,11,18,.8)", x=0.02, y=0.98, font=dict(size=11)))
     fig.update_xaxes(title="Qubits", gridcolor=COLORS["line"], dtick=5)
+    # Clamp the y-range to where the hardware actually lives. Plotting the
+    # density-matrix curve to n=55 spans ~27 decades, which squeezed every
+    # hardware reference line into the bottom ~15% of the plot — the entire
+    # reason the chart exists, rendered illegible. The curves running off the
+    # top is itself the message.
     fig.update_yaxes(title="Memory (GB, log scale)", type="log",
-                     gridcolor=COLORS["line"])
+                     gridcolor=COLORS["line"], range=[-1, 9])
     return fig
 
 
@@ -207,11 +229,16 @@ def crossover_figure() -> go.Figure:
                   line_width=0, annotation_text="  beyond any machine that will be built",
                   annotation_position="top left",
                   annotation_font=dict(color=COLORS["crit"], size=11))
-    for label, cap, color in TIERS:
-        fig.add_hline(y=cap / 2**30, line=dict(color=color, width=1.1, dash="dot"),
-                      annotation_text=f"  {label.split(' · ')[0]}",
-                      annotation_position="top left",
-                      annotation_font=dict(color=color, size=9))
+    for i, (label, cap, color) in enumerate(sorted(TIERS, key=lambda x: x[1])):
+        gb = cap / 2**30
+        left = i % 2 == 0
+        fig.add_hline(y=gb, line=dict(color=color, width=1.1, dash="dot"))
+        fig.add_annotation(xref="paper", x=0.012 if left else 0.988,
+                           y=math.log10(gb), yref="y",
+                           text=label.split(" · ")[0], showarrow=False,
+                           xanchor="left" if left else "right", yanchor="bottom",
+                           font=dict(color=color, size=9),
+                           bgcolor="rgba(7,11,18,.82)", borderpad=2)
 
     fig.add_vline(x=50, line=dict(color=COLORS["warn"], width=2))
     fig.add_annotation(x=50, y=1e9,
