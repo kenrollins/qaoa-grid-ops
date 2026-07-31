@@ -22,6 +22,9 @@ from src.simulation.qaoa_engine import run_islanding_optimization, select_backen
 from src.ui import components as ui
 from src.ui.views import architecture as architecture_view
 from src.ui.views import command_center as command_center_view
+from src.ui.views import how_it_works as how_it_works_view
+from src.ui.views import limits as limits_view
+from src.ui.views import sources as sources_view
 
 st.set_page_config(
     page_title="Grid Ops — Hybrid Quantum-Classical Grid Optimization",
@@ -107,17 +110,39 @@ if run_clicked:
 
 
 # ── Pages ────────────────────────────────────────────────────────────────────
+# Five URL-addressable destinations rather than six tabs plus nested sub-tabs.
+# Tabs cannot be linked to — you could not send someone "the wall" — and the
+# thesis was buried two levels deep behind a label promising gate diagrams.
+# Order follows the two real journeys: drive the demo, then ask "was that real?",
+# then "why does this need this hardware?".
 def _command_center() -> None:
     command_center_view.render(spec, backend, layers, pref, steps=steps,
                                grid=_grid, fault=fault)
+
+
+def _how_it_works() -> None:
+    how_it_works_view.render(st.session_state.get("run"), n_nodes=n_nodes,
+                             layers=layers, seed=int(seed), pref=pref)
+
+
+def _why_hardware() -> None:
+    limits_view.render(st.session_state.get("run"), backend=backend,
+                       layers=layers, pref=pref)
 
 
 def _architecture() -> None:
     architecture_view.render(backend)
 
 
+def _sources() -> None:
+    sources_view.render()
+
+
 nav = st.navigation([
     st.Page(_command_center, title="Command Center", icon="⚡", default=True),
+    st.Page(_how_it_works, title="How it works", icon="⚛️"),
+    st.Page(_why_hardware, title="Why it needs this hardware", icon="🧱"),
     st.Page(_architecture, title="Architecture", icon="🏗️"),
+    st.Page(_sources, title="Sources", icon="📚"),
 ])
 nav.run()

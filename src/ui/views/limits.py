@@ -21,7 +21,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from src.config.settings import COLORS
-from src.simulation.qaoa_engine import run_realism
+from src.simulation.qaoa_engine import run_realism, scaling_probe
 from src.ui import components as ui
 
 # Measured on this lab's hardware. Dated because hardware claims rot.
@@ -238,7 +238,11 @@ def _hard(num: str, title: str, plain: str, detail: str, cost: str) -> str:
             f'<div class="math">COST: {cost}</div></div></div>')
 
 
-def render(run=None) -> None:
+def render(run=None, backend: dict | None = None, layers: int = 2,
+           pref: str = "gb10") -> None:
+    backend = backend or {}
+    free_gb = backend.get("free_memory_bytes", 0) / 2**30
+    total_gb = backend.get("total_memory_bytes", 0) / 2**30
     st.markdown("""
 <div class="callout" style="border-left-color:var(--accent);
      background:rgba(0,200,255,.05);border-color:rgba(0,200,255,.3)">
@@ -431,6 +435,42 @@ FLOP-bound, and why unified memory on the GB10 matters more than raw compute.
   the service reports both ceilings from its actual available memory. Turning on the
   physics that makes an algorithm real costs you more than half your problem size.</p>
 </div>""", unsafe_allow_html=True)
+
+        st.markdown(ui.card_html("The capability claim", f"""
+<p>The Dell Pro Max GB10 is the <strong>entry point</strong> of this hardware class, and it is
+the floor of the claim, not the ceiling: <strong>{backend.get('max_qubits', 0)} qubits</strong>
+of dense all-to-all QAOA right now, bounded by unified memory ({free_gb:.0f} GiB free of
+{total_gb:.0f} GiB). Larger GPU configurations move that number up.</p>
+<p>The binding constraint is <strong>memory, not speed</strong>. A complex128 statevector costs
+16 bytes per amplitude and doubles per qubit; the working set here is ~1.6x that, covering the
+cost diagonal and tiled scratch. This chart is not a speedup ratio against other hardware — it
+is how large a problem this machine holds, and how long one energy evaluation takes at each
+size.</p>"""), unsafe_allow_html=True)
+
+        if st.button("🔥  Run Live Capability Sweep", type="primary"):
+            ns = [n for n in [8, 12, 16, 20, 22, 24, 26]
+                  if n <= max(backend.get("max_qubits", 8), 8)]
+            with st.spinner(f"Sweeping {len(ns)} problem sizes on {backend['label']}…"):
+                st.session_state["sweep"] = scaling_probe(
+                    ns, layers=layers, backend_preference=pref)
+
+        sweep = st.session_state.get("sweep")
+        if sweep:
+            st.plotly_chart(ui.scaling_figure(sweep, ceiling=backend.get("max_qubits")),
+                            width="stretch")
+            import pandas as pd
+
+            st.dataframe(pd.DataFrame([{
+                "Qubits": r["n_qubits"],
+                "Partitions": f"{2 ** r['n_qubits']:,}",
+                "Statevector": f"{r['statevector_bytes'] / 2**20:,.1f} MiB",
+                "Working set": f"{r['working_set_bytes'] / 2**20:,.1f} MiB",
+                "Time / evaluation": (f"{r['seconds']:.3f} s" if r.get("seconds") else "—"),
+                "Status": r["status"],
+            } for r in sweep]), width="stretch", hide_index=True)
+
+        st.plotly_chart(ui.memory_figure(ceiling_bytes=backend.get("free_memory_bytes", 0)),
+                        width="stretch")
 
     st.markdown("### Where classical compute falls off the cliff")
     st.plotly_chart(crossover_figure(), width="stretch")
