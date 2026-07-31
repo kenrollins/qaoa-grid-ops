@@ -34,3 +34,8 @@ ignore = [
 # documented in situ (probe_local, probe_gb10, _device_state).
 "src/simulation/qaoa_engine.py" = ["BLE001", "S110"]
 "services/gb10_qsim/server.py" = ["BLE001"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Tests run CPU-only on the NumPy path so CI needs no GPU and no GB10.
+addopts = "-q"

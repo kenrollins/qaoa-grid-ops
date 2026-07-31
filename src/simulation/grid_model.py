@@ -44,7 +44,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Iterable
+from collections.abc import Iterable
 
 import networkx as nx
 import numpy as np
@@ -105,8 +105,8 @@ def build_grid(spec: GridSpec) -> nx.Graph:
         if u != v and not g.has_edge(u, v):
             g.add_edge(u, v)
 
-    n_gen = max(1, int(round(spec.generator_fraction * n)))
-    gen_nodes = set(int(x) for x in rng.choice(n, size=n_gen, replace=False))
+    n_gen = max(1, round(spec.generator_fraction * n))
+    gen_nodes = {int(x) for x in rng.choice(n, size=n_gen, replace=False)}
 
     # Generation sites are lumpy; load buses are comparatively uniform.
     raw_gen = {i: (float(rng.uniform(60, 240)) if i in gen_nodes else 0.0) for i in range(n)}

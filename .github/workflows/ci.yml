@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # 3.12, not 3.13: qiskit-aer-gpu publishes no 3.13 wheel, and the
+          # deployed image is 3.12. CI should match what ships.
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          # UI/orchestration deps only. Nothing here needs CUDA — the whole
+          # test suite runs on the NumPy path so CI works on any runner.
+          pip install -r requirements-ui.txt
+          pip install pytest ruff
+
+      - name: Lint
+        run: ruff check src services app.py tests
+
+      - name: Tests
+        run: pytest tests -q
+
+      - name: App smoke test
+        # Catches the class of bug that repeatedly shipped here: a view that
+        # raises only when actually rendered. AppTest executes the real script.
+        run: |
+          python - <<'PY'
+          from streamlit.testing.v1 import AppTest
+          at = AppTest.from_file("app.py", default_timeout=900).run()
+          for e in at.exception:
+              print("EXCEPTION:", e.value)
+          assert not at.exception, f"{len(at.exception)} exception(s) on load"
+          at.button[1].click().run()   # trip the line
+          at.button[2].click().run()   # solve it
+          for e in at.exception:
+              print("EXCEPTION:", e.value)
+          assert not at.exception, f"{len(at.exception)} exception(s) after the scenario"
+          print("app smoke test OK")
+          PY

@@ -28,7 +28,7 @@ def render(run=None, n_nodes: int = 12, layers: int = 2) -> None:
     nc = run.model.n_terms if run else n * (n - 1) // 2
     p = run.result.get("layers", layers) if run else layers
 
-    st.markdown(f"""
+    st.markdown("""
 <div class="callout">
   <div class="h">Read this first — what this demonstration is</div>
   <p>This runs <strong>exact statevector simulation</strong> of a quantum algorithm on
@@ -50,7 +50,7 @@ def render(run=None, n_nodes: int = 12, layers: int = 2) -> None:
         f"join?</strong> That is one qubit. With <strong>{n} substations</strong> there are "
         f"<strong>2<sup>{n}</sup> = {2**n:,}</strong> possible ways to split the grid — the "
         "search space that makes this hard classically.",
-        f"substation i  →  qubit i  →  bit b_i ∈ {{0,1}}  →  spin s_i = 1 − 2·b_i ∈ {{+1,−1}}"
+        "substation i  →  qubit i  →  bit b_i ∈ {0,1}  →  spin s_i = 1 − 2·b_i ∈ {+1,−1}"
     ), unsafe_allow_html=True)
 
     st.markdown(_step(

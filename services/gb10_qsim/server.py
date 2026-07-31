@@ -26,12 +26,12 @@ import time
 # The shared math lives in the project's src/ tree, rsynced alongside this file.
 sys.path.insert(0, os.getenv("GRIDOPS_ROOT", "/opt/gridops"))
 
-from fastapi import FastAPI, HTTPException  # noqa: E402
-from pydantic import BaseModel, Field  # noqa: E402
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
 
-from src.simulation import custatevec_backend as csv_backend  # noqa: E402
-from src.simulation import noise as nz  # noqa: E402
-from src.simulation import qaoa_core  # noqa: E402
+from src.simulation import custatevec_backend as csv_backend
+from src.simulation import noise as nz
+from src.simulation import qaoa_core
 
 app = FastAPI(title="gridops-qsim", version="1.0")
 

@@ -31,7 +31,8 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Sequence
+from typing import Any
+from collections.abc import Callable, Sequence
 
 import numpy as np
 
@@ -189,7 +190,7 @@ def qaoa_statevector(
     amp = 1.0 / np.sqrt(dim)
     sv = xp.full(dim, amp, dtype=xp.complex128)
 
-    for gamma, beta in zip(gammas, betas):
+    for gamma, beta in zip(gammas, betas, strict=True):
         if mode == "gates":
             if couplings is None:
                 raise ValueError("mode='gates' requires the couplings")
@@ -349,8 +350,8 @@ def optimize_qaoa(
             try:
                 minimize(obj, x0, method="COBYLA",
                          options={"maxiter": budget, "rhobeg": 0.3, "tol": 1e-8})
-            except Exception:
-                pass
+            except Exception:  # noqa: S110 - optimiser refusal is a valid outcome;
+                pass           # the random-restart loop below covers it
         while len(history) - start < budget:
             obj(local_best_x + rng.normal(0, 0.1, 2 * q))
         return local_best_x, local_best_e

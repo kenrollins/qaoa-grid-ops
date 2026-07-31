@@ -269,10 +269,10 @@ def _trajectory_data(n_nodes: int, seed: int, noise_pct: float, n_traj: int):
 
 def trajectory_convergence_figure(n_nodes: int, seed: int, noise_pct: float,
                                   n_traj: int) -> go.Figure:
-    exact, mean, err, dm_bytes, tr_bytes = _trajectory_data(n_nodes, seed, noise_pct, n_traj)
+    exact, mean, err, _dm_bytes, _tr_bytes = _trajectory_data(n_nodes, seed, noise_pct, n_traj)
     xs = list(range(1, len(mean) + 1))
-    hi = [m + (e if e == e else 0) for m, e in zip(mean, err)]
-    lo = [m - (e if e == e else 0) for m, e in zip(mean, err)]
+    hi = [m + (e if e == e else 0) for m, e in zip(mean, err, strict=True)]
+    lo = [m - (e if e == e else 0) for m, e in zip(mean, err, strict=True)]
 
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=xs + xs[::-1], y=hi + lo[::-1], fill="toself",

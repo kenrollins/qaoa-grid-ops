@@ -97,7 +97,7 @@ class CuStateVecContext:
             finally:
                 self.active = False
 
-    def __enter__(self) -> "CuStateVecContext":
+    def __enter__(self) -> CuStateVecContext:
         return self
 
     def __exit__(self, *exc) -> None:
@@ -106,7 +106,7 @@ class CuStateVecContext:
     def __del__(self) -> None:
         try:
             self.close()
-        except Exception:
+        except Exception:  # noqa: S110 - a destructor must never raise
             pass
 
 

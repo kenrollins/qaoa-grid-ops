@@ -38,7 +38,7 @@ def render(backend: dict) -> None:
         classical orchestration                    memory-bound quantum simulation</div>
 """, unsafe_allow_html=True)
 
-    st.markdown(f"""
+    st.markdown("""
 <div class="callout">
   <div class="h">The split is forced, not stylistic</div>
   <p><strong>qiskit-aer-gpu publishes x86_64 wheels only.</strong> There is no aarch64 build,
@@ -150,7 +150,7 @@ no third-party API, no egress.</div>
     ])), unsafe_allow_html=True)
 
     st.markdown("### GPU residency — claim / release")
-    st.markdown(f"""
+    st.markdown("""
 <div class="callout">
   <div class="h">The GB10 is claimed, not shared</div>
   <p>Same discipline as the lab's L4 fleet: a demo <strong>claims</strong> the GPU, gets the

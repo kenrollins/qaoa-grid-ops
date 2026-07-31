@@ -88,11 +88,14 @@ def topology_figure(g: nx.Graph, report=None) -> go.Figure:
         xs = [g.nodes[u]["x"], g.nodes[v]["x"], None]
         ys = [g.nodes[u]["y"], g.nodes[v]["y"], None]
         if g.edges[u, v].get("faulted"):
-            fault_x += xs; fault_y += ys
+            fault_x += xs
+            fault_y += ys
         elif tuple(sorted((u, v))) in severed:
-            cut_x += xs; cut_y += ys
+            cut_x += xs
+            cut_y += ys
         else:
-            intact_x += xs; intact_y += ys
+            intact_x += xs
+            intact_y += ys
 
     fig = go.Figure()
     fig.add_trace(go.Scatter(
@@ -232,7 +235,7 @@ def circuit_ascii(n_qubits: int, layers: int, n_couplings: int, show: int = 8) -
         "",
     ]
     for q in range(shown):
-        seg = "".join(f"─[RZZ]──[RX({chr(946)}{l+1})]─" for l in range(layers))
+        seg = "".join(f"─[RZZ]──[RX({chr(946)}{lyr+1})]─" for lyr in range(layers))
         lines.append(f"q{q:<2}|0⟩ ──[H]──{seg}─── M")
     if n_qubits > shown:
         lines.append(f"      ⋮   ({n_qubits - shown} further qubits omitted)")

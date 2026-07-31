@@ -155,7 +155,8 @@ def one_line_diagram(
     for i in g.nodes():
         nd = g.nodes[i]
         is_gen = nd["kind"] == "generation"
-        xs.append(nd["x"]); ys.append(nd["y"])
+        xs.append(nd["x"])
+        ys.append(nd["y"])
         sizes.append(20 + (nd["generation_mw"] / 14 if is_gen else nd["load_mw"] / 4))
         symbols.append(GEN_SYMBOL if is_gen else LOAD_SYMBOL)
 
@@ -220,7 +221,7 @@ def instrument_strip(sol: pf.FlowSolution, risk: dict, label: str) -> str:
                 f'<div class="note">{note}</div></div>')
 
     return (
-        f'<div class="instrument-row">'
+        '<div class="instrument-row">'
         + cell("System frequency", f"{f:.2f}" if f else "—", " Hz",
                f"{dev:+.3f} Hz from nominal" if f else "SYSTEM BLACK", f_kind)
         + cell("Load served", f"{sol.served_mw:,.0f}", " MW",
@@ -361,7 +362,9 @@ def _line_arrow_track(g, sol, opened, n_steps: int, per_line: int = 3):
                 t = (base + a / per_line) % 1.0
                 xs.append(x0 + (x1 - x0) * t)
                 ys.append(y0 + (y1 - y0) * t)
-                angs.append(ang); cols.append(color); sizes.append(size)
+                angs.append(ang)
+                cols.append(color)
+                sizes.append(size)
         frames_xy.append((xs, ys, angs, cols, sizes))
     return frames_xy
 

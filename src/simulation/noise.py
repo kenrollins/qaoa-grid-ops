@@ -171,7 +171,7 @@ def qaoa_density_matrix(
     amp = 1.0 / dim                      # |+><+| has every entry equal to 1/2^n
     rho = xp.full((dim, dim), amp, dtype=xp.complex128)
 
-    for gamma, beta in zip(gammas, betas):
+    for gamma, beta in zip(gammas, betas, strict=True):
         # Diagonal cost unitary on ρ: ρ_ij → e^{-iγ(d_i - d_j)} ρ_ij. An outer
         # product of phases, not a matrix multiply.
         ph = xp.exp((-1j * float(gamma)) * diag)
@@ -350,7 +350,7 @@ def qaoa_trajectory(
     dim = 1 << n_qubits
     sv = xp.full(dim, 1.0 / np.sqrt(dim), dtype=xp.complex128)
 
-    for gamma, beta in zip(gammas, betas):
+    for gamma, beta in zip(gammas, betas, strict=True):
         qaoa_core.apply_cost_diagonal(sv, diag, float(gamma), xp)
         qaoa_core.apply_mixer(sv, n_qubits, float(beta), xp, custatevec_ctx)
 

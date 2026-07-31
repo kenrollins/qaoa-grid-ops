@@ -191,9 +191,9 @@ class IslandingRun:
     # Solved DC power flow for the three states an operator compares. These are
     # what the control-room view renders — every MW, loading %, and frequency on
     # screen comes from one of these solutions.
-    flow_intact: "pf.FlowSolution | None" = None
-    flow_post_fault: "pf.FlowSolution | None" = None
-    flow_islanded: "pf.FlowSolution | None" = None
+    flow_intact: pf.FlowSolution | None = None
+    flow_post_fault: pf.FlowSolution | None = None
+    flow_islanded: pf.FlowSolution | None = None
 
     @property
     def mw_shed_by_plan(self) -> float:

@@ -265,11 +265,11 @@ noisy simulation reaches roughly **half** the qubits of clean simulation.
 
     c = st.columns(4)
     for col, (lbl, val, note) in zip(c, [
-        ("Developer workstation", "33", "GB10 · 128 GB unified · clean"),
-        ("Same box, with noise", "16", "density matrix squares the cost"),
-        ("GB200 NVL72", "~39", "13.4 TB in one NVLink domain · clean"),
-        ("Multi-rack AI Factory", "~42", "~100 TB · clean"),
-    ]):
+        ("Developer workstation", "30", "GB10 · 128 GB unified · measured"),
+        ("Same box, with noise", "14", "density matrix squares the cost"),
+        ("XE9780 · HGX B300 NVL8", "37", "2.16 TB in one NVLink domain"),
+        ("XE9712 · GB300 NVL72", "40", "20.7 TB, 72-GPU unified pool"),
+    ], strict=False):
         col.markdown(ui.metric_html(lbl, val, "", note), unsafe_allow_html=True)
 
     st.markdown("""
@@ -398,7 +398,7 @@ FLOP-bound, and why unified memory on the GB10 matters more than raw compute.
                 st.error(f"Could not run: {rz['error']}")
             else:
                 cols = st.columns(3)
-                for col, r in zip(cols, rz.get("results", [])):
+                for col, r in zip(cols, rz.get("results", []), strict=False):
                     mem = r["memory_bytes"]
                     memtxt = (f"{mem / 2**30:.2f} GB" if mem >= 2**30
                               else f"{mem / 2**20:.1f} MB" if mem >= 2**20
