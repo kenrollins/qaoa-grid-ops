@@ -26,6 +26,7 @@ from src.ui.views import architecture as architecture_view
 from src.ui.views import command_center as command_center_view
 from src.ui.views import how_it_works as how_it_works_view
 from src.ui.views import limits as limits_view
+from src.ui.views import notes as notes_view
 from src.ui.views import sources as sources_view
 
 st.set_page_config(
@@ -144,6 +145,10 @@ def _architecture() -> None:
     architecture_view.render(backend)
 
 
+def _notes() -> None:
+    notes_view.render()
+
+
 def _sources() -> None:
     sources_view.render()
 
@@ -153,6 +158,7 @@ nav = st.navigation([
     st.Page(_how_it_works, title="How it works", icon="⚛️"),
     st.Page(_why_hardware, title="Why it needs this hardware", icon="🧱"),
     st.Page(_architecture, title="Architecture", icon="🏗️"),
+    st.Page(_notes, title="Technical notes", icon="📓"),
     st.Page(_sources, title="Sources", icon="📚"),
 ])
 nav.run()

@@ -18,6 +18,8 @@ See `../STYLE.md` for the standards these are written to.
 | [01](01-what-qaoa-computes.md) | What does QAOA actually compute, and what does simulating it leave out? | None |
 | [02](02-why-depth-can-hurt.md) | Why can adding circuit depth make QAOA *worse*? | Note 01 |
 | [03](03-what-a-qubo-cannot-express.md) | What can a QUBO encoding express, and what falls off the edge? | Note 01 |
+| [04](04-noise-without-the-density-matrix.md) | How do you simulate noise without paying 2^(2n)? | Note 01 |
+| [05](05-which-method-which-machine.md) | Which simulation method needs which machine? | Notes 01, 04 |
 
 ## Planned
 
@@ -25,8 +27,8 @@ See `../STYLE.md` for the standards these are written to.
   Hamiltonian onto a real device topology does to circuit depth.
 - Shot budgets: how measurement statistics interact with the classical
   optimizer, and how to choose N.
-- The memory wall in detail: exact statevector versus tensor-network methods,
-  and where each is the right tool.
+- Tensor networks in detail: where they beat state vectors and where their cost
+  explodes, since they are the standing caveat on every memory claim here.
 
 ## Measurement environment
 

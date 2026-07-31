@@ -34,6 +34,8 @@ RUN mkdir -p static \
 src = pathlib.Path(plotly.__file__).parent / 'package_data' / 'plotly.min.js'; \
 shutil.copy(src, pathlib.Path('static') / 'plotly.min.js')"
 COPY src/ ./src/
+# The technical notes render from these files inside the app.
+COPY docs/journal/ ./docs/journal/
 
 EXPOSE 8501
 

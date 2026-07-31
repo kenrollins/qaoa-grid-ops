@@ -49,7 +49,7 @@ def one_line_diagram(
     report=None,
     opened: set[tuple[int, int]] | None = None,
     title: str = "",
-    height: int = 640,
+    height: int = 820,
 ) -> go.Figure:
     """Render the network in its solved state."""
     opened = opened or set()
@@ -165,12 +165,13 @@ def one_line_diagram(
     de_energised = {n for st in sol.island_state if not st["energised"] for n in st["nodes"]}
 
     xs, ys, sizes, colors, symbols, texts, labels, lines = [], [], [], [], [], [], [], []
+    label_colors: list[str] = []
     for i in g.nodes():
         nd = g.nodes[i]
         is_gen = nd["kind"] == "generation"
         xs.append(nd["x"])
         ys.append(nd["y"])
-        sizes.append(20 + (nd["generation_mw"] / 14 if is_gen else nd["load_mw"] / 4))
+        sizes.append(26 + (nd["generation_mw"] / 11 if is_gen else nd["load_mw"] / 3))
         symbols.append(GEN_SYMBOL if is_gen else LOAD_SYMBOL)
 
         if i in de_energised:
@@ -182,6 +183,11 @@ def one_line_diagram(
 
         lines.append(COLORS["crit"] if i in de_energised else COLORS["bg"])
         labels.append(str(i))
+        # Label colour follows the fill: dark text on the bright island colours,
+        # light text on the dark de-energised fill. A single near-black label
+        # colour was ~1.6:1 against #3a3f4b — unreadable precisely on the nodes
+        # whose whole point is that their lights are out.
+        label_colors.append("#e6edf7" if i in de_energised else "#04121a")
         texts.append(
             f"<b>{nd['name']}</b> · {nd.get('kv', 115)} kV<br>"
             f"Generation {nd['generation_mw']:.1f} MW<br>"
@@ -191,7 +197,7 @@ def one_line_diagram(
 
     fig.add_trace(go.Scatter(
         x=xs, y=ys, mode="markers+text", text=labels, textposition="middle center",
-        textfont=dict(size=9, color="#04121a"),
+        textfont=dict(size=11, color=label_colors),
         marker=dict(size=sizes, color=colors, symbol=symbols,
                     line=dict(color=lines, width=1.8)),
         name="Substation", customdata=texts,
@@ -460,7 +466,7 @@ def animate(fig, g, sol, opened=None, n_steps: int = 24, duration: int = 90):
     return fig
 
 
-def render_animated(fig, height: int = 660, key: str = "flow") -> None:
+def render_animated(fig, height: int = 840, key: str = "flow") -> None:
     """Render a figure whose animation starts on load and loops forever.
 
     Streamlit's st.plotly_chart cannot autostart a Plotly animation, so this
@@ -473,6 +479,17 @@ def render_animated(fig, height: int = 660, key: str = "flow") -> None:
     deployment this demo argues for.
     """
     import streamlit as st
+
+    # WCAG 2.2.2 wants a way to stop auto-moving content that runs beyond five
+    # seconds, and this loops indefinitely. It is also plain demo hygiene:
+    # presenters freeze a screen while they talk over it.
+    frozen = st.toggle("Freeze diagram", value=False, key=f"freeze_{key}",
+                       help="Stop the power-flow animation. The diagram and every "
+                            "number stay exactly as they are.")
+    if frozen:
+        st.plotly_chart(fig, width="stretch",
+                        config={"displayModeBar": False})
+        return
 
     ms = getattr(fig, "_gridops_frame_ms", 90)
     html = fig.to_html(
