@@ -62,12 +62,18 @@ class ObjectiveWeights:
     """
 
     # Defaults chosen by sweep over 12 scenarios (4 seeds x 3 grid sizes),
-    # scored on MW served against a classical spectral bisection baseline:
-    #   flow=1.0 bal=1.0 size=0.35 →  5W/2T/5L, +214 MW,  0 infeasible
-    #   flow=0.5 bal=2.0 size=0.20 →  7W/3T/2L, +419 MW,  0 infeasible  ← chosen
-    #   flow=1.0 bal=4.0 size=0.10 →  8W/3T/1L, +488 MW,  6 infeasible
-    # Pushing balance higher wins more load but starts returning plans that are
-    # not electrically viable. An infeasible plan is not a better plan.
+    # scored on MW served against a classical spectral bisection baseline.
+    # Re-measured 2026-07-31 after the baseline was corrected to weight its cut
+    # by SOLVED flow rather than the synthetic attribute — it had been optimising
+    # a fiction, which flattered every figure below:
+    #   flow=1.0 bal=1.0 size=0.35 →  2W/2T/8L, -187 MW,  0/12 infeasible
+    #   flow=0.5 bal=2.0 size=0.20 →  5W/3T/4L, +260 MW,  1/12 infeasible  ← chosen
+    #   flow=1.0 bal=3.0 size=0.15 →  4W/1T/7L,  +95 MW,  0/12 infeasible
+    #   flow=1.0 bal=4.0 size=0.10 →  4W/4T/4L, +242 MW,  0/12 infeasible
+    # Prior figures against the flattered baseline were roughly double these
+    # (the chosen row read 7W/3T/2L, +419 MW). The ordering survived; the margin
+    # did not. Against a baseline given the same information, QAOA wins about
+    # half the time on this problem — which is the honest result.
     flow: float = 0.5       # minimise power interrupted by the cut
     balance: float = 2.0    # each island generation/load self-sufficient
     size: float = 0.2       # keep islands comparable — forbids the trivial cut

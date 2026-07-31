@@ -206,10 +206,17 @@ scored on MW served:
 
 | weights (flow / balance / size) | W/T/L | net MW | infeasible |
 |---|---|---|---|
-| 1.0 / 1.0 / 0.35 | 5/2/5 | +214 | 0/12 |
-| **0.5 / 2.0 / 0.20** | **7/3/2** | **+419** | **0/12** ← chosen |
-| 1.0 / 3.0 / 0.15 | 7/4/1 | +436 | 1/12 |
-| 1.0 / 4.0 / 0.10 | 8/3/1 | +488 | 6/12 |
+| 1.0 / 1.0 / 0.35 | 2/2/8 | −187 | 0/12 |
+| **0.5 / 2.0 / 0.20** | **5/3/4** | **+260** | 1/12 ← chosen |
+| 1.0 / 3.0 / 0.15 | 4/1/7 | +95 | 0/12 |
+| 1.0 / 4.0 / 0.10 | 4/4/4 | +242 | 0/12 |
+
+**These figures were re-measured on 2026-07-31 and are roughly half what this
+document previously reported.** The spectral baseline was building its Laplacian
+from the synthetic `flow_mw` attribute while QAOA optimised solved flows — so the
+classical method was minimising a cut through a fiction. Corrected, the chosen row
+fell from 7W/3T/2L and +419 MW to 5W/3T/4L and +260 MW. The ranking of weight
+choices survived; the size of the advantage did not.
 
 Pushing balance higher wins more load but returns electrically non-viable plans.
 **An infeasible plan is not a better plan.**

@@ -441,6 +441,12 @@ def spectral_baseline(g: nx.Graph) -> str:
     Note what it optimises — cut weight alone. It has no notion of generation
     adequacy, which is exactly where the QUBO's balance term earns its place.
 
+    Weighted by the SOLVED base-case flow, the same quantity the QUBO's flow term
+    uses. It previously used the synthetic `flow_mw` attribute, which meant the
+    classical baseline was minimising a cut through a fiction while QAOA
+    minimised one through real power — a comparison that flattered us. A baseline
+    is only worth reporting if it is given the same information.
+
     Returned little-endian to match every other bitstring in this project.
     """
     n = g.number_of_nodes()
@@ -450,7 +456,8 @@ def spectral_baseline(g: nx.Graph) -> str:
 
     lap = np.zeros((n, n), dtype=float)
     for u, v in live:
-        w = float(g.edges[u, v]["flow_mw"])
+        e = g.edges[u, v]
+        w = float(e.get("base_flow_mw", e["flow_mw"]))
         lap[u, u] += w
         lap[v, v] += w
         lap[u, v] -= w
