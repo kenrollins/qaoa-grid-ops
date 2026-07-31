@@ -27,7 +27,7 @@ jobs:
           pip install pytest ruff
 
       - name: Lint
-        run: ruff check src services app.py tests
+        run: ruff check src services app.py tests tools
 
       - name: Tests
         run: pytest tests -q

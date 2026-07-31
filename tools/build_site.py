@@ -19,7 +19,6 @@ Run:  python tools/build_site.py   (then `mkdocs build`)
 
 from __future__ import annotations
 
-import shutil
 import sys
 from pathlib import Path
 
