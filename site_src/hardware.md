@@ -16,8 +16,11 @@
 
 </div>
 
-A quantum state of n qubits is a list of 2ⁿ numbers — **17 GB at 30 qubits**, 34 GB at 31,
-69 GB at 32. Not steep; *exponential*, which is worse.
+A quantum state of n qubits is a list of 2ⁿ numbers — **16 GB at 30 qubits**, 32 GB at 31,
+64 GB at 32. Not steep; *exponential*, which is worse.
+
+Each number is a `complex128`: 8 bytes real, 8 bytes imaginary. Sizes on this site are
+binary, the way memory is addressed and sold — 1 GB = 2<sup>30</sup> bytes.
 
 Noise changes the shape entirely. Modelling it needs a **density matrix**, 2ⁿ × 2ⁿ instead
 of 2ⁿ, so it costs **the square**.
@@ -62,7 +65,7 @@ with its shrinking uncertainty band.</p>
 
 </div>
 
-At 30 qubits the exact method would need **17 exabytes**. Forty trajectories need **16 GB**
+At 30 qubits the exact method would need **16 exabytes** of memory. Forty trajectories need **16 GB**
 and eleven minutes, and are wrong by about 0.2%. Full treatment in
 [note 04](notes/04-noise-without-the-density-matrix.md).
 
@@ -75,7 +78,9 @@ and eleven minutes, and are wrong by about 0.2%. Full treatment in
 </div>
 
 A real quantum computer stores 50 qubits *in 50 qubits*. Writing that state down exactly
-takes **18 petabytes** — beyond any machine that will be built.
+takes **16 petabytes of memory** — 2<sup>50</sup> complex amplitudes at 16 bytes each. And
+not 16 petabytes spread across a datacenter: every gate touches the *entire* state, so it
+has to be memory a single computation can reach at once.
 
 **Two things this does not claim.** Not that quantum beats classical here. And not that
 classical simulation stops dead at 50 qubits — that is the limit of *exact state vector*

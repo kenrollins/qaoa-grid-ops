@@ -17,10 +17,10 @@ demo look easy. This module adds the two things that make it hard:
 ── Why noise squares the memory, concretely ────────────────────────────────
 A statevector is 2^n amplitudes. A density matrix is 2^n × 2^n = **2^(2n)**.
 
-    12 qubits →   268 MB          (statevector: 65 KB)
-    14 qubits →   4.3 GB
-    15 qubits →    17 GB          — the same memory as a 30-qubit statevector
-    16 qubits →    69 GB
+    12 qubits →   256 MB          (statevector: 64 KB)
+    14 qubits →   4.0 GB
+    15 qubits →    16 GB          — the same memory as a 30-qubit statevector
+    16 qubits →    64 GB
 
 That is the whole argument for memory capacity in one table, and this module
 makes it measurable rather than asserted: run the same problem clean and noisy

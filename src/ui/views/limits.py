@@ -226,7 +226,7 @@ def crossover_figure() -> go.Figure:
         hovertemplate="%{x} qubits on a real device<extra></extra>"))
 
     fig.add_hrect(y0=100 * 2**10, y1=1e12, fillcolor=COLORS["crit"], opacity=0.07,
-                  line_width=0, annotation_text="  beyond any machine that will be built",
+                  line_width=0, annotation_text="  beyond any single coherent memory domain",
                   annotation_position="top left",
                   annotation_font=dict(color=COLORS["crit"], size=11))
     for i, (label, cap, color) in enumerate(sorted(TIERS, key=lambda x: x[1])):
@@ -285,8 +285,11 @@ def render(run=None, backend: dict | None = None, layers: int = 2,
     st.markdown("### The wall")
     st.markdown("""
 A quantum state of n qubits is a list of 2ⁿ numbers. At 16 bytes each, that is
-**17 GB at 30 qubits** — and 34 GB at 31, 69 GB at 32. The line is not steep; it is
+**16 GB at 30 qubits** — and 32 GB at 31, 64 GB at 32. The line is not steep; it is
 *exponential*, which is worse than steep.
+
+Each number is a `complex128`: 8 bytes real, 8 bytes imaginary. Sizes here are binary,
+the way memory is addressed and sold — 1 GB = 2^30 bytes.
 
 Noise changes the shape of the problem entirely. Modelling a noisy system needs a
 **density matrix** — 2ⁿ × 2ⁿ instead of 2ⁿ — so it costs **the square**. On the same box,
@@ -510,8 +513,10 @@ size.</p>"""), unsafe_allow_html=True)
 <div class="callout">
   <div class="h">Read the green line</div>
   <p>A real quantum computer stores 50 qubits <em>in 50 qubits</em>. Writing that same state
-  down <strong>exactly</strong> takes <strong>18 petabytes</strong> — beyond any machine that
-  will be built. That is a statement about <em>simulability</em>, not about speed.</p>
+  down <strong>exactly</strong> takes <strong>16 petabytes of memory</strong> — 2<sup>50</sup>
+  complex amplitudes at 16 bytes each. And not 16 petabytes spread across a datacenter: every
+  gate touches the <em>entire</em> state, so it has to be memory a single computation can reach
+  at once. That is a statement about <em>simulability</em>, not about speed.</p>
   <p><strong>Two things this chart does not claim.</strong></p>
   <p><strong>1. Not that quantum beats classical here.</strong> It does not, today. QAOA has
   no demonstrated advantage over good classical heuristics on problems like this.</p>

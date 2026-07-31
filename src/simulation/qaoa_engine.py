@@ -620,7 +620,7 @@ def run_realism(model: IsingModel, gammas, betas, shots: int = 2048,
         import cupy as cp
         xp = cp
     # The GB10 service enforces its noisy ceiling server-side; the local path
-    # must do the same or a 15+ qubit request allocates a 17 GB-and-up density
+    # must do the same or a 15+ qubit request allocates a 16 GB-and-up density
     # matrix in this process — on an overcommitting host that is swap death or
     # the OOM killer, not a clean MemoryError.
     ceiling = nz.max_noisy_qubits(backend.free_memory_bytes or 2**33)

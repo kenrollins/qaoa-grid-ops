@@ -63,7 +63,7 @@ def cost_diagonal(
     Computed in TILES. The obvious implementation caches one ±1 spin array per
     qubit and reuses it across all O(n²) coupling terms — which costs n·2ⁿ bytes
     and is perfectly fine at 24 qubits (400 MB) but demands 30 GB at 30 qubits,
-    on top of the 17 GB statevector. Tiling caps the scratch at n·2^tile_qubits
+    on top of the 16 GB statevector. Tiling caps the scratch at n·2^tile_qubits
     (~500 MB) and keeps the reuse, so the memory that matters stays available to
     the statevector itself — which is the entire point of running on a box with
     128 GB of unified memory.
@@ -146,8 +146,8 @@ def apply_cost_diagonal(sv: Any, diag: Any, gamma: float, xp: Any, tile_qubits: 
     """exp(-i γ H_C) for diagonal H_C — one elementwise phase multiply.
 
     Applied in tiles. Written as the natural one-liner, `sv *= xp.exp(-1j*gamma*diag)`
-    allocates TWO full-width complex128 temporaries — 34 GB of scratch at 30
-    qubits on top of a 17 GB statevector, which is how a run with plenty of
+    allocates TWO full-width complex128 temporaries — 32 GB of scratch at 30
+    qubits on top of a 16 GB statevector, which is how a run with plenty of
     nominal headroom still dies. Tiling holds scratch to a fixed ~500 MB.
     """
     dim = sv.size

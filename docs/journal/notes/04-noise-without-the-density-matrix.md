@@ -6,7 +6,7 @@ date: 2026-07-31
 audience: [scientist, engineer, leader]
 tags: [noise, trajectories, memory-wall, simulation]
 prerequisites: "Note 01 for the density-matrix cost."
-one_line: "Modelling noise exactly needs a density matrix, which squares the memory and caps a 128 GB machine at 14 qubits. Quantum trajectories replace one exact object with many random pure-state runs averaged together, cost 2^n instead of 2^(2n), reaching 30 qubits on the same hardware. Measured: at 30 qubits the exact method needs 17 exabytes and the trajectory method needs 16 GB, for about 0.2% statistical error."
+one_line: "Modelling noise exactly needs a density matrix, which squares the memory and caps a 128 GB machine at 14 qubits. Quantum trajectories replace one exact object with many random pure-state runs averaged together, cost 2^n instead of 2^(2n), reaching 30 qubits on the same hardware. Measured: at 30 qubits the exact method needs 16 exabytes and the trajectory method needs 16 GB, for about 0.2% statistical error."
 ---
 
 # How do you simulate noise without paying 2^(2n)?
@@ -70,15 +70,20 @@ trajectories:
 |---|---|---|
 | 14 | 4.0 GB · 17.6 s · ⟨H⟩ = 3.3964 | 0.004 GB · 0.02 s · ⟨H⟩ = 3.4080 ± 0.0107 |
 | 20 | 16 TB — will not fit | 0.02 GB · 0.30 s |
-| 26 | 67 PB — will not fit | 1.0 GB · 34.8 s |
-| 30 | **17 exabytes** — will not fit | **16 GB** · 643 s |
+| 26 | 64 PB — will not fit | 1.0 GB · 34.8 s |
+| 30 | **16 exabytes** — will not fit | **16 GB** · 643 s |
+
+Density-matrix sizes are exact arithmetic — 2<sup>2n</sup> complex amplitudes at 16 bytes
+each. Sizes throughout this project are binary, as memory is always sold and addressed:
+1 GB = 2<sup>30</sup> bytes. The trajectory column is measured allocation, which is why it
+does not divide out to the same clean powers.
 
 The 14-qubit row is the one that licenses the rest. It is the largest problem where
 *both* methods run, and they agree inside one standard error. Every row below it has
 only one method available, so the agreement above is the evidence that the cheap method
 is measuring the same thing.
 
-At 30 qubits the exact approach would need seventeen **exabytes**. The dice approach
+At 30 qubits the exact approach would need sixteen **exabytes** of memory. The dice approach
 needs sixteen gigabytes and eleven minutes, and is wrong by about 0.2%.
 
 ## What follows
