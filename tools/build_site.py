@@ -19,6 +19,8 @@ Run:  python tools/build_site.py   (then `mkdocs build`)
 
 from __future__ import annotations
 
+import re
+import shutil
 import sys
 from pathlib import Path
 
@@ -29,11 +31,41 @@ SRC = ROOT / "site_src"
 FIGS = SRC / "figures"
 NOTES_SRC = ROOT / "docs" / "journal" / "notes"
 NOTES_DST = SRC / "notes"
+PLOTLY_SRC = ROOT / "static" / "plotly.min.js"
+PLOTLY_DST = SRC / "js" / "plotly.min.js"
 
 # Fragments never carry the library. mkdocs.yml loads plotly once per page via
 # extra_javascript; baking it into "the first" fragment left every page that did
 # not happen to contain that figure rendering its charts blank.
 PLOTLY_MODE = False
+
+# mkdocs emits extra_javascript at the end of <body>, so the library loads AFTER
+# these inline scripts have already run and Plotly is undefined at that moment.
+# Every figure drew an empty box. Waiting for DOMContentLoaded is not enough on
+# its own either -- if the browser has the script cached the event may already
+# have fired -- so check for the library first and fall back to the event.
+GATE_OPEN = """<script>(function(){function draw(){"""
+GATE_SHUT = """}
+if (window.Plotly) { draw(); }
+else { document.addEventListener("DOMContentLoaded", draw); }
+})();</script>"""
+
+
+def _wrap_title(fig, limit: int = 62) -> None:
+    """Break long titles onto a second line.
+
+    These titles were written for the application, whose plot area is the full
+    browser width. The site puts the same figures in a column between a nav and
+    a table of contents, where plotly silently clips the overflow -- one title
+    lost its provenance mid-word ("...cuS").
+    """
+    title = getattr(fig.layout.title, "text", None)
+    if not title or len(title) <= limit or "<br>" in title:
+        return
+    cut = title.rfind(" ", 0, limit)
+    if cut > 0:
+        fig.update_layout(title_text=title[:cut] + "<br>" + title[cut + 1:])
+        fig.update_layout(margin=dict(t=64))
 
 
 def _write_fragment(fig, name: str) -> None:
@@ -45,7 +77,25 @@ def _write_fragment(fig, name: str) -> None:
         config={"displayModeBar": False, "responsive": True},
         default_height="480px",
     )
-    (FIGS / f"{name}.html").write_text(html)
+    # Plotly emits the whole fragment on one line, padded with runs of spaces:
+    #   <div ...>        <div id=...></div>            <script>...
+    # md_in_html ends the raw-HTML block at that inner </div>, so the REST of
+    # the line -- twelve spaces, then <script> -- became an indented code block.
+    # Markdown escaped the script and printed it as text instead of the browser
+    # executing it, and every figure on the site rendered as an empty box.
+    #
+    # Putting each tag on its own line at column zero removes both the mid-line
+    # start and any leading indentation. Nothing here depends on whitespace:
+    # plotly escapes < and > inside the JSON payload as \u003c / \u003e, so no
+    # tag boundary can fall inside the data.
+    html = re.sub(r">\s+<", ">\n<", html)
+    html = "\n".join(line.lstrip() for line in html.splitlines())
+
+    head, _, rest = html.partition("<script>")
+    body, _, tail = rest.rpartition("</script>")
+    if not body:                       # layout changed upstream -- do not fail silently
+        raise RuntimeError(f"{name}: no <script> block to gate; check plotly version")
+    (FIGS / f"{name}.html").write_text(head + GATE_OPEN + body + GATE_SHUT + tail)
     print(f"  figure  {name}")
 
 
@@ -82,11 +132,20 @@ def build_figures() -> None:
     ]
     for name, fig in jobs:
         fig.update_layout(margin=dict(l=55, r=25, t=48, b=45))
+        _wrap_title(fig)
         _write_fragment(fig, name)
 
     # The loading-band key belongs with the diagrams and is pure HTML.
     (FIGS / "loading-key.html").write_text(cr.loading_key(pf.solve(faulted)))
     print("  figure  loading-key")
+
+
+def copy_plotly() -> None:
+    """Vendor the same plotly build the application serves, so the published site
+    depends on no third-party host."""
+    PLOTLY_DST.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(PLOTLY_SRC, PLOTLY_DST)
+    print(f"  vendor  plotly.min.js ({PLOTLY_SRC.stat().st_size // 1024} KB)")
 
 
 def copy_notes() -> None:
@@ -106,6 +165,7 @@ def copy_notes() -> None:
 
 def main() -> None:
     print("building site sources")
+    copy_plotly()
     copy_notes()
     build_figures()
     print("done — now run: mkdocs build")

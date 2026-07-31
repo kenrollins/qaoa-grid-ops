@@ -32,7 +32,6 @@ theme:
         icon: material/weather-night
         name: Switch to dark mode
   features:
-    - navigation.instant
     - navigation.tracking
     - navigation.sections
     - navigation.indexes
@@ -78,13 +77,16 @@ plugins:
 extra_css:
   - stylesheets/extra.css
 
-# Loaded site-wide. Bundling it into the first exported fragment meant only the
-# page containing that one figure had the library — every other page rendered
-# its charts blank. A CDN is right here (a published site is online by
-# definition); the application serves its own copy because it must work
-# air-gapped.
+# Loaded site-wide, and served from this site rather than a CDN — the same
+# vendored copy the application uses. A CDN would be one more host that a
+# corporate or government network can block, and a blocked CDN means every
+# chart silently renders as an empty box.
+#
+# mkdocs places this at the END of <body>, i.e. AFTER the inline figure scripts
+# have already run, so tools/build_site.py gates each figure on the library
+# being present rather than assuming load order.
 extra_javascript:
-  - https://cdn.plot.ly/plotly-3.7.0.min.js
+  - js/plotly.min.js
 
 nav:
   - Overview: index.md
