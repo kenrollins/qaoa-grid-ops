@@ -68,20 +68,6 @@ def card_html(title: str, body: str) -> str:
     return f'<div class="card"><h4>{title}</h4>{body}</div>'
 
 
-def engage_button_html() -> str:
-    """Retro/future sci-fi button with vector line icons and phosphor glow."""
-    svg_icon = '''<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" style="width:28px;height:28px;stroke:#000;stroke-width:1.5;fill:none;filter:drop-shadow(0 0 8px rgba(0,153,204,0.8));">
-        <circle cx="16" cy="16" r="14" stroke-width="1.2"/>
-        <path d="M16 8 L16 24" stroke-linecap="round"/>
-        <path d="M12 12 Q16 14 16 18" stroke-linecap="round"/>
-        <path d="M20 12 Q16 14 16 18" stroke-linecap="round"/>
-    </svg>'''
-    return f'''
-    <div style="display:flex;align-items:center;justify-content:center;gap:1rem;width:100%;font-family:var(--mono);">
-        {svg_icon}
-        <span>ENGAGE SEQUENCE</span>
-        {svg_icon}
-    </div>'''
 
 
 # ── Tab 1 — topology ─────────────────────────────────────────────────────────
