@@ -19,3 +19,8 @@ LAB.md
 # Vendored at build time from the installed plotly package (see Dockerfile).
 # 4.6 MB of third-party minified JS does not belong in source history.
 static/plotly.min.js
+
+# mkdocs build output, and the figures/notes the site build generates.
+site/
+site_src/figures/
+site_src/notes/
