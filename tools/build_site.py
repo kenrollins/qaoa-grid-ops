@@ -31,7 +31,6 @@ SRC = ROOT / "site_src"
 FIGS = SRC / "figures"
 NOTES_SRC = ROOT / "docs" / "journal" / "notes"
 NOTES_DST = SRC / "notes"
-PLOTLY_SRC = ROOT / "static" / "plotly.min.js"
 PLOTLY_DST = SRC / "js" / "plotly.min.js"
 
 # Fragments never carry the library. mkdocs.yml loads plotly once per page via
@@ -141,11 +140,20 @@ def build_figures() -> None:
 
 
 def copy_plotly() -> None:
-    """Vendor the same plotly build the application serves, so the published site
-    depends on no third-party host."""
+    """Vendor plotly.js so the published site depends on no third-party host.
+
+    Taken from the installed plotly package rather than the application's
+    static/ copy, which is not in the repository -- CI checked out the source,
+    found no static/plotly.min.js and failed the build. Sourcing it from the
+    package also guarantees the library is the same version as the one that
+    generated these figures.
+    """
+    import plotly
+
+    src = Path(plotly.__file__).parent / "package_data" / "plotly.min.js"
     PLOTLY_DST.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(PLOTLY_SRC, PLOTLY_DST)
-    print(f"  vendor  plotly.min.js ({PLOTLY_SRC.stat().st_size // 1024} KB)")
+    shutil.copyfile(src, PLOTLY_DST)
+    print(f"  vendor  plotly.min.js ({src.stat().st_size // 1024} KB) from {plotly.__version__}")
 
 
 def copy_notes() -> None:
