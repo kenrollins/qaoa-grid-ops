@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import re
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -173,6 +174,10 @@ def copy_notes() -> None:
 
 def main() -> None:
     print("building site sources")
+    # Regenerate the palette first: the stylesheets and the figures are both
+    # derived from COLORS, and a site built from a stale stylesheet is exactly
+    # the failure this pipeline exists to prevent.
+    subprocess.run([sys.executable, str(ROOT / "tools" / "gen_theme.py")], check=True)
     copy_plotly()
     copy_notes()
     build_figures()
