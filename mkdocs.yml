@@ -10,7 +10,7 @@ edit_uri: edit/main/site_src/
 copyright: |
   &copy; 2026 Ken Rollins. Apache-2.0. A personal exploration — not an official Dell
   product, reference architecture, or Dell position.
-  <a href="about/">Read the full disclaimer.</a>
+  <a href="https://kenrollins.github.io/qaoa-grid-ops/about/">Read the full disclaimer.</a>
 
 # site_src, not docs/: docs/ also holds the internal review artefacts, which are
 # useful in the repository and not intended as a public site. The build script

@@ -39,6 +39,12 @@ jobs:
       - name: Build site
         run: mkdocs build --strict
 
+      # mkdocs --strict validates links written in MARKDOWN. It does not see
+      # raw HTML passed through from the config, which is how a relative
+      # "about/" in the footer 404'd on every page but the home page.
+      - name: Check internal links
+        run: python tools/check_links.py site
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
