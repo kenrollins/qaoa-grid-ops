@@ -55,7 +55,10 @@ with st.sidebar:
 
     st.markdown("## Objective Weights")
     w_flow = st.slider("Minimize interrupted flow", 0.0, 2.0, 0.5, 0.05)
-    w_bal = st.slider("Island power balance", 0.0, 2.0, 2.0, 0.05)
+    # Max 4.0, not 2.0: the chosen default IS 2.0, and a slider whose
+    # default sits at its own ceiling can only be detuned. The weight
+    # sweep in settings.py measured up to 4.0.
+    w_bal = st.slider("Island power balance", 0.0, 4.0, 2.0, 0.05)
     w_size = st.slider("Island size balance", 0.0, 1.0, 0.2, 0.05,
                        help="Prevents the degenerate 'one island' answer. "
                             "Lowering this wins more load but starts returning "

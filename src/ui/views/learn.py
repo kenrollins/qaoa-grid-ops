@@ -72,9 +72,14 @@ def interference_figure(n_nodes: int, seed: int, layers: int) -> go.Figure:
     x = np.arange(dim)
     uniform = 1.0 / dim
 
+    # Colour the best answer and its Z2 partner in the INITIAL trace too, not
+    # only inside the animation frames. The caption points at "the two green
+    # bars", and before pressing play there were none.
+    bar_colors = [COLORS["ok"] if i in (best_pos, comp_pos) else COLORS["accent"]
+                  for i in range(dim)]
     fig = go.Figure()
     fig.add_trace(go.Bar(
-        x=x, y=frames[0], marker=dict(color=COLORS["accent"]),
+        x=x, y=frames[0], marker=dict(color=bar_colors),
         name="probability", hovertemplate="candidate %{x}<br>P = %{y:.5f}<extra></extra>"))
     fig.add_hline(y=uniform, line=dict(color=COLORS["text_dim"], width=1, dash="dot"),
                   annotation_text="pure guessing", annotation_position="top right",
@@ -146,11 +151,13 @@ def _landscape_data(n_nodes: int, seed: int, res: int = 60):
 def landscape_figure(n_nodes: int, seed: int) -> go.Figure:
     gammas, betas, z, g_sigma, g_maxj, sigma, _ = _landscape_data(n_nodes, seed)
     fig = go.Figure(go.Heatmap(
-        # NO reversescale. Turbo runs blue -> red, so low <H> (better) is blue,
-        # which is what the caption promises. reversescale=True inverted this and
-        # put the best result in the hottest colour.
-        x=gammas, y=betas, z=z, colorscale="Turbo",
-        colorbar=dict(title="⟨H⟩<br>lower<br>is better", tickfont=dict(size=10)),
+        # Viridis, not Turbo: Turbo is perceptually ordered but collides at the
+        # red end under common colour-vision deficiencies. Viridis is CVD-safe
+        # and monotonic in lightness, so the ordering survives in greyscale and
+        # on a bad projector. Low <H> (better) is the DARK end, and the colourbar
+        # says so rather than relying on the reader inferring it.
+        x=gammas, y=betas, z=z, colorscale="Viridis",
+        colorbar=dict(title="⟨H⟩<br>darker<br>is better", tickfont=dict(size=10)),
         hovertemplate="γ = %{x:.3f}<br>β = %{y:.3f}<br>⟨H⟩ = %{z:.3f}<extra></extra>"))
 
     lo = float(z.min())

@@ -145,7 +145,7 @@ result, and why "how much better than guessing" is the number that matters.
 Each layer has two dials. **γ** sets how hard the cost step pushes; **β** sets how hard the
 mixer stirs. Nobody knows the right values in advance, so a classical optimizer hunts for
 them — and this is where most of the real work lives. Every point below is one setting of
-the two dials; the colour is how good the result was. **Cool colours are better.**
+the two dials; the colour is how good the result was. **Darker is better.**
 """)
     with st.spinner("Evaluating the landscape…"):
         st.plotly_chart(landscape_figure(fig_n, seed), width="stretch")

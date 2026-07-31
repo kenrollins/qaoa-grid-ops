@@ -485,16 +485,21 @@ size.</p>"""), unsafe_allow_html=True)
         if sweep:
             st.plotly_chart(ui.scaling_figure(sweep, ceiling=backend.get("max_qubits")),
                             width="stretch")
-            import pandas as pd
-
-            st.dataframe(pd.DataFrame([{
-                "Qubits": r["n_qubits"],
-                "Partitions": f"{2 ** r['n_qubits']:,}",
-                "Statevector": f"{r['statevector_bytes'] / 2**20:,.1f} MiB",
-                "Working set": f"{r['working_set_bytes'] / 2**20:,.1f} MiB",
-                "Time / evaluation": (f"{r['seconds']:.3f} s" if r.get("seconds") else "—"),
-                "Status": r["status"],
-            } for r in sweep]), width="stretch", hide_index=True)
+            # Hand-built table rather than st.dataframe: the latter renders
+            # Streamlit's light chrome inside a dark instrument panel, and
+            # hide_index does not touch the header row.
+            rows_html = "".join(
+                f"<tr><td>{r['n_qubits']}</td>"
+                f"<td class='v'>{2 ** r['n_qubits']:,}</td>"
+                f"<td class='v'>{r['statevector_bytes'] / 2**20:,.1f} MiB</td>"
+                f"<td class='v'>{r['working_set_bytes'] / 2**20:,.1f} MiB</td>"
+                f"<td class='v'>{f'{r['seconds']:.3f} s' if r.get('seconds') else '—'}</td>"
+                f"<td class='v'>{r['status']}</td></tr>"
+                for r in sweep)
+            st.markdown(
+                '<table class="spec buys"><tr><th>Qubits</th><th>Partitions</th>'
+                '<th>State vector</th><th>Working set</th><th>Time / evaluation</th>'
+                f'<th>Status</th></tr>{rows_html}</table>', unsafe_allow_html=True)
 
         st.plotly_chart(ui.memory_figure(ceiling_bytes=backend.get("free_memory_bytes", 0)),
                         width="stretch")

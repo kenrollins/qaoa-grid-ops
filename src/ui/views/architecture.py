@@ -20,8 +20,10 @@ def _spec(rows: list[tuple[str, str]]) -> str:
 
 def render(backend: dict) -> None:
     total_gb = backend.get("total_memory_bytes", 0) / 2**30
-    ceiling = backend.get("max_qubits", 0)
     live = backend.get("available", False)
+    # An unreachable backend has no ceiling; printing 0 reads as a live
+    # measurement of zero rather than an absence of measurement.
+    ceiling = backend.get("max_qubits", 0) if live else "—"
 
     st.markdown("### System architecture")
     st.markdown(f"""
@@ -32,7 +34,7 @@ def render(backend: dict) -> None:
 │  grid model → QUBO → Ising        │◄──HTTP─►│  CuPy / CUDA 12                   │
 │  backend probe · run orchestration│  JSON   │  aarch64 · Blackwell sm_121       │
 │  topology · convergence · export  │         │  {total_gb:>5.0f} GiB unified memory        │
-│                                   │         │  live ceiling: {ceiling:>2} qubits          │
+│                                   │         │  live ceiling: {ceiling!s:>2} qubits          │
 │  NO quantum state held here       │         │  OWNS the statevector             │
 └───────────────────────────────────┘         └───────────────────────────────────┘
         classical orchestration                    memory-bound quantum simulation</div>
@@ -86,7 +88,7 @@ headroom from closing that gap is roughly 12x at 30 qubits (PLAN.md M3).</div>
 <div class="desc">{total_gb:.0f} GiB of <strong>unified</strong> memory, compute capability
 {backend.get('compute_capability', '12.1')}. Unified memory is the binding resource for
 statevector simulation — which is why a desktop-class system carries
-<strong>{ceiling} qubits</strong> of dense all-to-all QAOA. Entirely on-premise: grid topology,
+<strong>{ceiling}{" qubits" if live else ""}</strong> of dense all-to-all QAOA. Entirely on-premise: grid topology,
 generation profiles, and contingency plans never leave the building. No public cloud QPU,
 no third-party API, no egress.</div>
 <div class="tech">TAA-compliant · air-gappable · {backend.get('device', 'NVIDIA GB10')}</div></div>
