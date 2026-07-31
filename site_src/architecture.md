@@ -1,20 +1,42 @@
 # Architecture
 
-Deliberately includes the constraints and the forced decisions, because a diagram that
+Two machines, one HTTP hop, and a hard rule about which one is allowed to hold the
+quantum state. This page covers both the hardware it runs on and the software that runs
+on it — including the constraints and the forced decisions, because a diagram that
 implies everything was a free choice is the fastest way to lose a technical reader.
 
+## The system at a glance
+
+```mermaid
+flowchart LR
+    subgraph gb10["Dell Pro Max GB10 · aarch64"]
+        direction TB
+        api["<b>gridops-qsim</b><br/>FastAPI :8600"]
+        kern["<b>cuStateVec + CuPy</b><br/>CUDA 12 · Blackwell sm_121"]
+        mem["<b>128 GB unified memory</b><br/>owns the state vector"]
+        api --- kern --- mem
+    end
+
+    subgraph host["Application host · x86_64"]
+        direction TB
+        ui["<b>Command Center</b><br/>Streamlit + Plotly"]
+        model["<b>Domain model</b><br/>grid → QUBO → Ising"]
+        orch["<b>Orchestration</b><br/>backend probe · COBYLA"]
+        ui --- model --- orch
+    end
+
+    orch -- "couplings J, γ, β<br/>HTTP + JSON" --> api
+    api -- "energies, convergence,<br/>timings, kernel path" --> orch
+
+    classDef a fill:#0b1622,stroke:#00b4d8,color:#e6edf3
+    classDef b fill:#131a12,stroke:#3ddc97,color:#e6edf3
+    class host a
+    class gb10 b
 ```
-┌─ Application host ────────────────┐         ┌─ Dell Pro Max GB10 ───────────────┐
-│  Grid Ops Command Center          │         │  gridops-qsim  (FastAPI :8600)    │
-│                                   │         │                                   │
-│  Streamlit + Plotly               │  VLAN   │  cuStateVec kernels               │
-│  grid model → QUBO → Ising        │◄──HTTP─►│  CuPy / CUDA 12                   │
-│  backend probe · orchestration    │  JSON   │  aarch64 · Blackwell sm_121       │
-│  topology · convergence · export  │         │  128 GiB unified memory           │
-│  NO quantum state held here       │         │  OWNS the state vector            │
-└───────────────────────────────────┘         └───────────────────────────────────┘
-        classical orchestration                    memory-bound quantum simulation
-```
+
+**No quantum state crosses that line.** The host sends coupling constants and receives
+energies. The state vector — 2ⁿ complex amplitudes, 16 GB at 30 qubits — is allocated on
+the GB10, lives in GPU memory for the whole run, and is never serialized to the host.
 
 !!! warning "The split is forced, not stylistic"
     **`qiskit-aer-gpu` publishes x86_64 wheels only.** There is no aarch64 build, so
@@ -24,7 +46,44 @@ implies everything was a free choice is the fastest way to lose a technical read
     Running the simulation on the GB10 therefore *requires* separating it from a UI that
     runs elsewhere. This diagram is what the hardware permits, not a preference.
 
-## The four layers
+## The hardware
+
+| | Dell Pro Max GB10 | Application host |
+|---|---|---|
+| Silicon | Grace Blackwell, sm_121 | x86_64 |
+| Memory | **128 GB unified**, CPU+GPU coherent | ordinary system RAM |
+| Role | the entire quantum simulation | UI, domain model, orchestration |
+| GPU needed | yes — it *is* the product | none |
+| Holds | the state vector | no quantum state at all |
+
+**Unified memory is the whole reason a desktop-class machine appears here.** For
+state-vector simulation the binding resource is not FLOPS and not total GPU memory across
+a box — it is the largest *coherent* memory domain, because every gate touches the entire
+state and the state cannot straddle a slow link. 128 GB coherent is what carries 30 qubits
+of dense all-to-all QAOA. The [Hardware](hardware.md) page works that argument through
+against the rest of the Dell line.
+
+Two consequences that only show up on unified memory:
+
+- **The qubit ceiling is live, not a constant.** It is computed from *free* memory at
+  request time, because the GPU's memory is shared with everything else resident on the
+  machine.
+- **A neighbour lowers the ceiling.** A resident 8B NIM holding ~59 GB does not merely
+  slow a run — it drops the ceiling from 30 qubits to about 27. Which is why the GPU is
+  claimed rather than shared.
+
+## GPU residency — claim and release
+
+Same discipline as the lab's L4 fleet: a demo **claims** the GPU, gets the whole machine,
+and **releases** it so the default inference tenant returns.
+
+| `tools/gb10-gpu` | Effect |
+|---|---|
+| `claim` | stop the resident NIM → start `gridops-qsim` → full 30-qubit ceiling. **Takes `nim/*` off the inference gateway until released.** |
+| `release` | stop `gridops-qsim` → restart the NIM → inference restored |
+| `status` | what is resident, memory in use, and the live qubit ceiling |
+
+## The four software layers
 
 **1 — Interface and orchestration.** Contingency parameters, topology visualization,
 convergence telemetry, the exportable islanding schedule, and the domain model itself:
@@ -46,27 +105,32 @@ unitary deliberately stays on the tiled CuPy path — routing it through cuState
 4.18× against 4.17× while requiring the full 2ⁿ phase array in device memory, 16 GB at 30
 qubits. Mixer accelerated, diagonal tiled: full speed, full ceiling.
 
-**4 — Dell infrastructure.** 128 GiB of unified memory, compute capability 12.1. Unified
-memory is the binding resource for state-vector simulation, which is why a desktop-class
-system carries 30 qubits of dense all-to-all QAOA. Entirely on-premise: grid topology,
-generation profiles and contingency plans never leave the building.
+**4 — Dell infrastructure.** Entirely on-premise. Grid topology, generation profiles and
+contingency plans never leave the building.
 
 ## Request path — one optimization
 
+```mermaid
+sequenceDiagram
+    autonumber
+    participant O as Operator
+    participant H as Application host
+    participant G as GB10 · gridops-qsim
+    O->>H: nodes, layers, steps → Run
+    H->>H: build_grid() — substations, generation, load, ratings
+    H->>H: build_ising() — 3-term objective → J couplings + offset
+    H->>G: GET /health
+    G-->>H: device, free memory, LIVE qubit ceiling
+    H->>G: POST /qaoa/optimize { J, layers, steps }
+    Note over G: cost_diagonal() tiled, bounded scratch<br/>ramp init + 1-D scale scan<br/>COBYLA: evolve + ⟨H⟩ exact
+    G-->>H: energy history, top states, timings, kernel path
+    H->>H: evaluate_partition() — MW severed, balance, FEASIBILITY
+    H->>H: brute_force() exact optimum, if ≤ 16 qubits
+    H-->>O: operator-legible schedule + JSON export
 ```
-operator sets nodes / layers / steps, presses Run
-   ├─ 1. build_grid()          synthesize substations, generation, load, ratings
-   ├─ 2. build_ising()         3-term objective → J_ij couplings + offset
-   ├─ 3. select_backend()      GET /health → device, free memory, LIVE ceiling
-   ├─ 4. POST /qaoa/optimize ──────────────────────────────────────────►  [GB10]
-   │        cost_diagonal()    tiled, bounded scratch
-   │        ramp init + scan   1-D scale search
-   │        COBYLA outer loop  each step: evolve + ⟨H⟩ exact
-   │   ◄──── { energy_history, top_states, timings, kernels } ──────────
-   ├─ 5. evaluate_partition()  bitstring → MW severed, balance, FEASIBILITY
-   ├─ 6. brute_force()         exact optimum, if ≤ 16 qubits (verification)
-   └─ 7. render + JSON export  operator-legible schedule
-```
+
+Step 9 is the one worth noticing: below 16 qubits the demo computes the **exact** answer
+by brute force and shows QAOA's result against it — including the cases where QAOA loses.
 
 ## API surface
 
@@ -79,12 +143,26 @@ operator sets nodes / layers / steps, presses Run
 | `POST /qaoa/realism` | the same circuit ideal / finite-shot / noisy |
 | `POST /qaoa/verify` | proves the diagonal fast path ≡ gate-by-gate RZZ |
 
+## Measured performance
+
+Dense all-to-all QAOA, p=2, cuStateVec kernels, 2026-07-30:
+
+| Qubits | State vector | Per energy evaluation |
+|---|---|---|
+| 24 | 0.25 GB | **0.16 s** |
+| 26 | 1.0 GB | 0.65 s |
+| 28 | 4.0 GB | 2.78 s |
+| 30 | **16 GB** | 11.98 s — capability ceiling, not interactive |
+
+Interactive work happens at 6–24 qubits. The 30-qubit figure exists to mark the wall, not
+to be driven live in front of an audience.
+
 ## Honest reporting
 
 The result always names the path that **actually executed**, never the one requested. A
-local fallback labels itself `local-*` with an explicit warning naming what the result does
-not support — because a run that silently executes elsewhere while the interface reports
-GB10 hardware is exactly the unearned claim this project exists to avoid.
+local fallback labels itself `local-*` with an explicit warning naming what the result
+does not support — because a run that silently executes elsewhere while the interface
+reports GB10 hardware is exactly the unearned claim this project exists to avoid.
 
 ## Security posture
 

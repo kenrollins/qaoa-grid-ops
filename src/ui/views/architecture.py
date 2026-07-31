@@ -171,20 +171,25 @@ no third-party API, no egress.</div>
     ])), unsafe_allow_html=True)
 
     st.markdown("### Measured performance")
-    st.markdown(ui.card_html("GB10 — dense all-to-all QAOA, p=2 (2026-07-29)", _spec([
-        ("24 qubits", "0.25 GB statevector · <strong>0.67 s</strong> per energy evaluation"),
-        ("26 qubits", "1.0 GB · 2.6 s"),
-        ("28 qubits", "4.0 GB · 11.6 s"),
-        ("30 qubits", "<strong>16 GB</strong> · 50 s — capability ceiling, not interactive"),
-        ("Interactive range", "6–24 qubits — 0.67 s or less per energy evaluation; "
-                              "a full 30-step optimization is ~20 s at 24 qubits "
-                              "(arithmetic from the measured rate), sub-second per "
-                              "step below ~20 qubits"),
+    st.markdown(ui.card_html("GB10 — dense all-to-all QAOA, p=2, cuStateVec (2026-07-30)",
+                             _spec([
+        ("24 qubits", "0.25 GB statevector · <strong>0.16 s</strong> per energy evaluation"),
+        ("26 qubits", "1.0 GB · 0.65 s"),
+        ("28 qubits", "4.0 GB · 2.78 s"),
+        ("30 qubits", "<strong>16 GB</strong> · 12 s — capability ceiling, not interactive"),
+        ("Interactive range", "6–24 qubits — 0.16 s or less per energy evaluation; "
+                              "a full 30-step optimization is ~5 s at 24 qubits "
+                              "(arithmetic from the measured rate), well under a second "
+                              "per step below ~20 qubits"),
         ("Correctness", "QAOA returns the <strong>exact optimum</strong> at p=1/2/4, "
                         "verified by brute force"),
-        ("Known headroom", "~12x is left on the floor at 30 qubits vs. bandwidth-bound "
-                           "estimate — the mixer still uses a CuPy reshape path rather than "
-                           "cuStateVec's own apply_matrix (PLAN.md M3)"),
+        ("Kernel path", "the mixer runs on <strong>cuStateVec</strong> — 4.0-4.2x measured "
+                        "against the general-purpose CuPy path, agreeing to ~1e-18. The "
+                        "diagonal cost unitary stays tiled on CuPy: same speed, and it "
+                        "keeps the full 30-qubit ceiling"),
+        ("Known headroom", "~3x remains against a bandwidth-bound estimate at 30 qubits, "
+                           "unattributed — it would need profiling to explain, and is "
+                           "reported rather than guessed at"),
     ])), unsafe_allow_html=True)
 
     st.markdown("### Security posture")

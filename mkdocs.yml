@@ -32,15 +32,27 @@ theme:
         icon: material/weather-night
         name: Switch to dark mode
   features:
+    # Top tabs instead of one long left rail: the sections are peers, not a
+    # reading order, and a customer should see the whole shape at a glance.
+    - navigation.tabs
+    - navigation.tabs.sticky
     - navigation.tracking
     - navigation.sections
     - navigation.indexes
     - navigation.top
     - navigation.footer
+    # Folds the page's table of contents INTO the left sidebar. Without this
+    # there is a nav rail on the left and a second one on the right, and it is
+    # not obvious which is which.
+    - toc.integrate
     - toc.follow
     - search.suggest
     - search.highlight
+    - search.share
     - content.code.copy
+    - content.tooltips
+    # NOT navigation.instant. It swaps pages by XHR, which does not re-run the
+    # inline scripts that draw every figure on this site.
   icon:
     repo: fontawesome/brands/github
   font:
@@ -50,7 +62,11 @@ theme:
 markdown_extensions:
   - admonition
   - pymdownx.details
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
@@ -89,16 +105,16 @@ extra_javascript:
   - js/plotly.min.js
 
 nav:
-  - Overview: index.md
-  - The demonstration: demo.md
-  - How it works: how-it-works.md
-  - Why it needs this hardware: hardware.md
-  - Technical notes:
-      - notes/index.md
-      - notes/01-what-qaoa-computes.md
-      - notes/02-why-depth-can-hurt.md
-      - notes/03-what-a-qubo-cannot-express.md
-      - notes/04-noise-without-the-density-matrix.md
-      - notes/05-which-method-which-machine.md
+  - Home: index.md
+  - Demonstration: demo.md
+  - How It Works: how-it-works.md
   - Architecture: architecture.md
+  - Hardware: hardware.md
+  - Technical Notes:
+      - Overview: notes/index.md
+      - 01 - What QAOA actually computes: notes/01-what-qaoa-computes.md
+      - 02 - Why depth can hurt: notes/02-why-depth-can-hurt.md
+      - 03 - What a QUBO cannot express: notes/03-what-a-qubo-cannot-express.md
+      - 04 - Noise without the density matrix: notes/04-noise-without-the-density-matrix.md
+      - 05 - Which method, which machine: notes/05-which-method-which-machine.md
   - Sources: sources.md
