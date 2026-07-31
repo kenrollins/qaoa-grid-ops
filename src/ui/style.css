@@ -6,21 +6,21 @@
 
 :root {
 /* >>> generated from src/config/settings.py — do not edit by hand */
-  --bg: #000000;
-  --surface: #0d0d0d;
-  --surface-alt: #0d1a26;
-  --border: #0d1a26;
+  --bg: #0b0f17;
+  --surface: #141b26;
+  --surface-alt: #1b2433;
+  --border: #1b2433;
   --accent: #0099CC;
   --accent-dim: #006699;
-  --text: #e6edf7;
+  --text: #dbe4f0;
   --text-dim: #6a8fa3;
   --ok: #3ddc97;
   --warn: #ffc857;
   --crit: #ff5c5c;
   --island-a: #0099CC;
   --island-b: #ff9f1c;
-  --line: #1e2c40;
-  --plot-bg: #050505;
+  --line: #243044;
+  --plot-bg: #070b12;
 /* <<< end generated */
   /* Fonts are hand-written: not colours, not part of the palette. */
   --mono: "JetBrains Mono", "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
@@ -136,7 +136,7 @@
 }
 
 /* ── Streamlit chrome ────────────────────────────────────────────────────── */
-section[data-testid="stSidebar"] { background: #0d0d0d; border-right: 1px solid var(--border); }
+section[data-testid="stSidebar"] { background: var(--surface); border-right: 1px solid var(--border); }
 section[data-testid="stSidebar"] h2 {
   font-family: var(--mono); font-size: .75rem; letter-spacing: .1em;
   text-transform: uppercase; color: var(--accent); font-weight: 700;

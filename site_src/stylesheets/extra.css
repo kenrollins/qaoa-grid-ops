@@ -3,20 +3,20 @@
    there, not here; tests/test_theme.py fails the build if these drift apart. */
 /* >>> generated from src/config/settings.py — do not edit by hand */
 :root {
-  --md-primary-fg-color:        #0d0d0d;
-  --md-primary-fg-color--dark:  #000000;
-  --md-primary-bg-color:        #e6edf7;
+  --md-primary-fg-color:        #141b26;
+  --md-primary-fg-color--dark:  #0b0f17;
+  --md-primary-bg-color:        #dbe4f0;
   --md-primary-bg-color--light: #6a8fa3;
   --md-accent-fg-color:         #0099CC;
 }
 [data-md-color-scheme="slate"] {
-  --md-default-bg-color:        #000000;
-  --md-code-bg-color:           #0d0d0d;
-  --md-default-fg-color:        #e6edf7;
+  --md-default-bg-color:        #0b0f17;
+  --md-code-bg-color:           #141b26;
+  --md-default-fg-color:        #dbe4f0;
   --md-default-fg-color--light: #6a8fa3;
   --md-typeset-a-color:         #0099CC;
-  --md-footer-bg-color:         #0d0d0d;
-  --md-footer-bg-color--dark:   #000000;
+  --md-footer-bg-color:         #141b26;
+  --md-footer-bg-color--dark:   #0b0f17;
 }
 /* Header/content separation. The page is pure black and the header is
    one step above it, which on its own is nearly invisible -- so the
@@ -24,9 +24,9 @@
    hairline, and its glow. Same device as the app, same reason. */
 .md-header, .md-tabs {
   background:
-    linear-gradient(90deg, transparent 0%, transparent calc(100% - 1px), #0d1a26 calc(100% - 1px), #0d1a26 100%),
-    linear-gradient(0deg, transparent 0%, transparent calc(100% - 1px), #0d1a26 calc(100% - 1px), #0d1a26 100%),
-    #0d0d0d;
+    linear-gradient(90deg, transparent 0%, transparent calc(100% - 1px), #1b2433 calc(100% - 1px), #1b2433 100%),
+    linear-gradient(0deg, transparent 0%, transparent calc(100% - 1px), #1b2433 calc(100% - 1px), #1b2433 100%),
+    #141b26;
   background-size: 80px 80px;
 }
 .md-header {

@@ -13,19 +13,29 @@ from dataclasses import dataclass, field
 # ── Brand / theme ────────────────────────────────────────────────────────────
 # Dell Technologies federal palette, used by both the CSS and the Plotly charts
 # so the two never drift apart.
+# THE palette. tools/gen_theme.py derives the custom properties for both
+# src/ui/style.css and the published site's extra.css from this dict, and
+# tests/test_theme.py fails the build if either drifts from it.
+#
+# Not pure black. Near-white text on #000 at paragraph length causes halation --
+# the glyph edges bloom and the eye cannot settle -- which made the site's prose
+# genuinely hard to read. The background is lifted off black with a slight blue
+# cast and the body text comes down from full white. The application matches, so
+# the two surfaces stay one product.
+#
 # Kept in step with the :root block in src/ui/style.css. The theme pass
 # restyled the application chrome there but left this dict on the previous
 # palette, so every Plotly figure rendered as a lighter panel floating on the
 # new black background -- in the application AND on the published site, which
 # generates its figures from this same dict.
 COLORS: dict[str, str] = {
-    "bg": "#000000",
-    "surface": "#0d0d0d",
-    "surface_alt": "#0d1a26",
-    "border": "#0d1a26",
+    "bg": "#0b0f17",
+    "surface": "#141b26",
+    "surface_alt": "#1b2433",
+    "border": "#1b2433",
     "accent": "#0099CC",       # darkened blue — primary accent
     "accent_dim": "#006699",
-    "text": "#e6edf7",
+    "text": "#dbe4f0",
     "text_dim": "#6a8fa3",
     "island_a": "#0099CC",     # microgrid island A
     "island_b": "#ff9f1c",     # microgrid island B
@@ -34,10 +44,10 @@ COLORS: dict[str, str] = {
     "crit": "#ff5c5c",
     # Gridlines are deliberately NOT the border token: on pure black, #0d1a26
     # is invisible, and a chart with no gridlines cannot be read off.
-    "line": "#1e2c40",
+    "line": "#243044",
     # Plot area, one step below surface. Was hardcoded as "#070b12" in nine
     # places, which is why it survived the theme pass unchanged.
-    "plot_bg": "#050505",
+    "plot_bg": "#070b12",
 }
 
 # ── Compute backend ──────────────────────────────────────────────────────────
