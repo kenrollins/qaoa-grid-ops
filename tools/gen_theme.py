@@ -30,6 +30,18 @@ APP_CSS = ROOT / "src" / "ui" / "style.css"
 SITE_CSS = ROOT / "site_src" / "stylesheets" / "extra.css"
 
 BEGIN = "/* >>> generated from src/config/settings.py — do not edit by hand */"
+
+# Material derives its dark-theme foreground ramp from ONE colour at four
+# alphas. Body text is 0.82, not 1.0 — the translucency is what keeps prose off
+# a dark background from glaring. Overriding the top of the ramp with an opaque
+# colour made the site brighter than stock Material, and left the bottom two
+# steps resolving against a hue variable that was never set.
+FG_ALPHAS = {"": 0.82, "--light": 0.56, "--lighter": 0.32, "--lightest": 0.12}
+
+
+def _rgb(hex_colour: str) -> tuple[int, int, int]:
+    h = hex_colour.lstrip("#")
+    return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
 END = "/* <<< end generated */"
 
 
@@ -66,6 +78,7 @@ def _site_block(c: dict[str, str]) -> str:
     bright slab, which is the opposite of the app, where the accent appears only
     as a hairline and a glow.
     """
+    r, g, b = _rgb(c["text"])
     grid = c["surface_alt"]
     stripe = (f"linear-gradient({{deg}}deg, transparent 0%, transparent calc(100% - 1px), "
               f"{grid} calc(100% - 1px), {grid} 100%)")
@@ -80,8 +93,8 @@ def _site_block(c: dict[str, str]) -> str:
         '[data-md-color-scheme="slate"] {',
         f"  --md-default-bg-color:        {c['bg']};",
         f"  --md-code-bg-color:           {c['surface']};",
-        f"  --md-default-fg-color:        {c['text']};",
-        f"  --md-default-fg-color--light: {c['text_dim']};",
+        *[f"  --md-default-fg-color{suffix}: rgba({r}, {g}, {b}, {a});"
+          for suffix, a in FG_ALPHAS.items()],
         f"  --md-typeset-a-color:         {c['accent']};",
         f"  --md-footer-bg-color:         {c['surface']};",
         f"  --md-footer-bg-color--dark:   {c['bg']};",
