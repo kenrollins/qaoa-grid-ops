@@ -73,3 +73,36 @@ def test_local_run_never_claims_gb10(monkeypatch, spec, grid):
     assert run.result["backend"] != "gb10", "local run claimed GB10 hardware"
     assert run.warnings, "silent fallback — no warning raised"
     assert "LOCALLY" in run.warnings[0]
+
+
+def test_run_signature_covers_everything_that_changes_the_answer(spec):
+    """A cached run may only be reused when nothing that affects it has moved.
+
+    Guards the D-03 reuse path: serving a stale result would be worse than the
+    recompute it saves.
+    """
+    from dataclasses import replace
+
+    from src.config.settings import ObjectiveWeights
+
+    base = eng.run_signature(spec, 2, 30, "gb10", [(0, 1)])
+    assert eng.run_signature(spec, 2, 30, "gb10", [(0, 1)]) == base, "not stable"
+
+    variations = [
+        ("layers", eng.run_signature(spec, 3, 30, "gb10", [(0, 1)])),
+        ("steps", eng.run_signature(spec, 2, 40, "gb10", [(0, 1)])),
+        ("backend", eng.run_signature(spec, 2, 30, "local", [(0, 1)])),
+        ("fault", eng.run_signature(spec, 2, 30, "gb10", [(2, 3)])),
+        ("no fault", eng.run_signature(spec, 2, 30, "gb10", [])),
+        ("nodes", eng.run_signature(replace(spec, n_nodes=14), 2, 30, "gb10", [(0, 1)])),
+        ("seed", eng.run_signature(replace(spec, seed=99), 2, 30, "gb10", [(0, 1)])),
+        ("weights", eng.run_signature(
+            replace(spec, weights=ObjectiveWeights(flow=1.0, balance=1.0, size=1.0)),
+            2, 30, "gb10", [(0, 1)])),
+    ]
+    for name, sig in variations:
+        assert sig != base, f"signature did not change when {name} changed"
+
+    # Fault ordering must not matter — it is a set of lines, not a sequence.
+    assert (eng.run_signature(spec, 2, 30, "gb10", [(0, 1), (2, 3)])
+            == eng.run_signature(spec, 2, 30, "gb10", [(3, 2), (1, 0)]))

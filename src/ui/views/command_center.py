@@ -43,7 +43,7 @@ def _state_cards(run) -> str:
 
 
 def render(spec, backend: dict, layers: int, pref: str, steps: int = 30,
-           grid=None, fault: list | None = None) -> None:
+           grid=None, fault: list | None = None, sig=None) -> None:
     fault = fault or []
     step = st.session_state.get("demo_step", 0)
     base = pf.calibrate_ratings(grid if grid is not None else build_grid(spec))
@@ -59,19 +59,31 @@ def render(spec, backend: dict, layers: int, pref: str, steps: int = 30,
                      type="primary" if step == 0 else "secondary"):
         st.session_state["demo_step"] = 0
         st.session_state.pop("run", None)
+        st.session_state.pop("run_sig", None)
         st.rerun()
     if bar[1].button("② ⚡ Trip the line", width="stretch", disabled=not fault,
                      type="primary" if step == 1 else "secondary"):
         st.session_state["demo_step"] = 1
         st.session_state.pop("run", None)
+        st.session_state.pop("run_sig", None)
         st.rerun()
     if bar[2].button("③ 🚀 Solve it", width="stretch", disabled=not fault,
                      type="primary" if step == 2 else "secondary"):
-        with st.spinner(f"Searching {2 ** spec.n_nodes:,} possible grid splits on "
-                        f"{backend['label']}…"):
-            st.session_state["run"] = run_islanding_optimization(
-                spec, layers=layers, steps=steps, backend_preference=pref,
-                graph=base, fault=fault)
+        # Reuse an identical run rather than recomputing it. The sidebar button
+        # and this one used to be independent: pressing the sidebar control
+        # stored a run, then pressing ③ threw it away and solved again from
+        # scratch. The signature covers everything that changes the answer, so a
+        # stale result can never be served.
+        fresh = (sig is not None
+                 and st.session_state.get("run_sig") == sig
+                 and st.session_state.get("run") is not None)
+        if not fresh:
+            with st.spinner(f"Searching {2 ** spec.n_nodes:,} possible grid splits on "
+                            f"{backend['label']}…"):
+                st.session_state["run"] = run_islanding_optimization(
+                    spec, layers=layers, steps=steps, backend_preference=pref,
+                    graph=base, fault=fault)
+                st.session_state["run_sig"] = sig
         st.session_state["demo_step"] = 2
         st.rerun()
     if not fault:

@@ -18,7 +18,9 @@ from src.config.settings import (
 )
 from src.simulation.grid_model import build_grid
 from src.simulation.power_flow import calibrate_ratings, worst_contingency
-from src.simulation.qaoa_engine import run_islanding_optimization, select_backend
+from src.simulation.qaoa_engine import (
+    run_islanding_optimization, run_signature, select_backend,
+)
 from src.ui import components as ui
 from src.ui.views import architecture as architecture_view
 from src.ui.views import command_center as command_center_view
@@ -102,11 +104,19 @@ if not backend["available"]:
              "Run `tools/gb10-gpu claim` to bring the GB10 up, "
              "or switch Backend to 'This host'.")
 
+_sig = run_signature(spec, layers, steps, pref, fault)
+
 if run_clicked:
     with st.spinner(f"Optimizing {n_nodes}-substation islanding on {backend['label']}…"):
         st.session_state["run"] = run_islanding_optimization(
             spec, layers=layers, steps=steps, backend_preference=pref,
             graph=_grid, fault=fault)
+        st.session_state["run_sig"] = _sig
+    # Advance the scenario. Previously this button stored a run and left the
+    # step where it was, so a demo driver pressed the big primary control and
+    # watched nothing happen.
+    st.session_state["demo_step"] = 2 if fault else 0
+    st.rerun()
 
 
 # ── Pages ────────────────────────────────────────────────────────────────────
@@ -117,7 +127,7 @@ if run_clicked:
 # then "why does this need this hardware?".
 def _command_center() -> None:
     command_center_view.render(spec, backend, layers, pref, steps=steps,
-                               grid=_grid, fault=fault)
+                               grid=_grid, fault=fault, sig=_sig)
 
 
 def _how_it_works() -> None:

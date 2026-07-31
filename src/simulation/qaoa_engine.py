@@ -640,3 +640,18 @@ def run_realism(model: IsingModel, gammas, betas, shots: int = 2048,
             "max_qubits_clean": backend.max_qubits,
             "max_qubits_noisy": nz.max_noisy_qubits(backend.free_memory_bytes or 2**33),
             "results": [r.to_dict() for r in res]}
+
+
+def run_signature(spec: GridSpec, layers: int, steps: int, pref: str,
+                  fault) -> tuple:
+    """Everything a run depends on, hashed into a comparison key.
+
+    Lets a second "solve" press reuse an identical run instead of recomputing
+    it. Deliberately includes the objective weights and the fault: changing
+    either changes the answer, and silently reusing a stale result would be
+    worse than the recompute it saves.
+    """
+    w = spec.weights
+    return (spec.n_nodes, spec.seed, round(w.flow, 4), round(w.balance, 4),
+            round(w.size, 4), int(layers), int(steps), pref,
+            tuple(sorted(tuple(sorted(e)) for e in (fault or []))))
