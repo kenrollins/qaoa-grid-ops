@@ -36,6 +36,12 @@ names tells a visitor which to read. This is the redundancy the seed doc called
 out, and it should be resolved *before* the Pages port doubles it.
 
 **(c) Streamlit tabs are the wrong container for this content.**
+
+> **Measured afterwards, 2026-07-31:** the execution cost below is real but not
+> decisive — a warm rerun with all six tabs is 0.37 s, because caching absorbs
+> it. The restructure was done for the URL argument and the buried thesis, not
+> for speed. Recorded so nobody re-litigates this on performance grounds.
+
 `st.tabs` executes **every** tab body on **every** rerun — all six tabs' figure
 code runs when the user drags a slider on tab 1 (the heavy learn.py figures are
 `st.cache_data`-ed after first computation, but first render pays for all tabs,
