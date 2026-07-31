@@ -1,9 +1,23 @@
+---
+title: Grid Ops
+hide:
+  - navigation
+  - toc
+---
+
 # Grid Ops
 
-**Hybrid quantum-classical grid optimization.** A working demonstrator that solves
-controlled microgrid islanding with QAOA on a Dell Pro Max GB10, built to find where
-classical simulation of quantum algorithms actually runs out — and what that means for
-the hardware you need to develop them.
+!!! quote ""
+    **Hybrid quantum-classical grid optimization — QAOA microgrid islanding on a Dell Pro
+    Max GB10, and where classical simulation of quantum algorithms actually runs out.**
+
+    By **Ken Rollins**, Chief AI Technology Strategist in Dell Federal.
+
+---
+
+A working demonstrator that solves controlled microgrid islanding with QAOA on a Dell Pro
+Max GB10, built to find where classical simulation of quantum algorithms actually runs
+out — and what that means for the hardware you need to develop them.
 
 !!! quote ""
     A desktop-class GB10 Grace Blackwell carries **30 qubits** of dense, all-to-all QAOA
