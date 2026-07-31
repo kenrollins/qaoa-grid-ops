@@ -162,9 +162,17 @@ def render(spec, backend: dict, layers: int, pref: str, steps: int = 30,
   <p>The plan: open <b>{len(r.severed_lines)}</b> breaker(s), forming
   <b>{len(isl)}</b> self-sufficient islands
   ({' and '.join(f"{len(s['nodes'])} substations at {s['frequency_hz']:.2f} Hz"
-              for s in isl[:2])}). Each island now generates its own power
-  instead of leaning on the rest of the network.</p>
+              for s in isl[:2])}{' and more' if len(isl) > 2 else ''}). Each island
+  now generates its own power instead of leaning on the rest of the network.</p>
+  <p class="cue">▶ Compare the three states below — then open
+  <b>How it works</b> to see how the answer was found, or
+  <b>Why it needs this hardware</b> for what it cost to compute.</p>
 </div>""", unsafe_allow_html=True)
+
+        # The before / no-action / after comparison is the payoff of the whole
+        # demo. It previously sat below a 640 px diagram, where a room does not
+        # scroll to it.
+        st.markdown(_state_cards(run), unsafe_allow_html=True)
 
         st.markdown(cr.instrument_strip(sol, risk, "islanding plan applied"),
                     unsafe_allow_html=True)
@@ -173,8 +181,6 @@ def render(spec, backend: dict, layers: int, pref: str, steps: int = 30,
                        faulted_graph, sol, opened=opened),
             key="islanded")
         st.markdown(cr.loading_key(sol), unsafe_allow_html=True)
-
-        st.markdown(_state_cards(run), unsafe_allow_html=True)
 
         if run.exact:
             # is_optimal refers to the plan ACTUALLY APPLIED, which is chosen
