@@ -319,3 +319,25 @@ p.fine { color: var(--text-dim); font-size: .78rem; line-height: 1.6; margin-top
 }
 .source .srcwhat b, .source .srcused b { color: var(--text); font-weight: 650; }
 .source .srcused { border-top: 1px solid var(--border); padding-top: .4rem; }
+
+/* ── Loading-band key strip under the one-line diagram ───────────────────── */
+.loadkey {
+  display: flex; align-items: center; flex-wrap: wrap; gap: .2rem 1.1rem;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 4px; padding: .5rem .9rem; margin-top: -.4rem;
+}
+.loadkey .hdr {
+  font-family: var(--mono); font-size: .62rem; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--text-dim); margin-right: .3rem;
+}
+.loadkey .lk { display: inline-flex; align-items: center; gap: .4rem; }
+.loadkey .sw { width: 20px; height: 4px; border-radius: 1px; display: inline-block; }
+.loadkey .rg { font-family: var(--mono); font-size: .68rem; color: var(--text-dim);
+  font-variant-numeric: tabular-nums; }
+.loadkey .lb { font-family: var(--mono); font-size: .66rem; letter-spacing: .06em;
+  font-weight: 650; }
+.loadkey .ct {
+  font-family: var(--mono); font-size: .6rem; color: var(--text);
+  background: var(--surface-alt); border: 1px solid var(--border);
+  border-radius: 8px; padding: 0 .35rem; min-width: 1.1rem; text-align: center;
+}

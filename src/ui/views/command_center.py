@@ -101,6 +101,7 @@ def render(spec, backend: dict, layers: int, pref: str, steps: int = 30,
                     unsafe_allow_html=True)
         cr.render_animated(cr.animate(cr.one_line_diagram(base, sol), base, sol),
                            key="normal")
+        st.markdown(cr.loading_key(sol), unsafe_allow_html=True)
 
     # ── Step 1 — the fault ──────────────────────────────────────────────
     elif step == 1:
@@ -130,6 +131,7 @@ def render(spec, backend: dict, layers: int, pref: str, steps: int = 30,
         cr.render_animated(
             cr.animate(cr.one_line_diagram(faulted_graph, sol), faulted_graph, sol),
             key="fault")
+        st.markdown(cr.loading_key(sol), unsafe_allow_html=True)
         st.markdown(f'<div class="callout"><div class="h">Security assessment</div>'
                     f'<p>{risk["note"]} Highest loading <b>{risk["worst"]:.0f}%</b>.</p>'
                     f'</div>', unsafe_allow_html=True)
@@ -170,6 +172,7 @@ def render(spec, backend: dict, layers: int, pref: str, steps: int = 30,
             cr.animate(cr.one_line_diagram(faulted_graph, sol, r, opened=opened),
                        faulted_graph, sol, opened=opened),
             key="islanded")
+        st.markdown(cr.loading_key(sol), unsafe_allow_html=True)
 
         st.markdown(_state_cards(run), unsafe_allow_html=True)
 

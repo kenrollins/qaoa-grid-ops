@@ -124,9 +124,22 @@ def one_line_diagram(
         seen_kv.add(kv)
 
         if loading >= 0.80:
+            # The loading colour rides ON TOP of the voltage-class conductor as a
+            # thinner core, so both facts stay visible. Capped at half the base
+            # width with no absolute floor: a 1.6 floor covered ~90% of a 115 kV
+            # line, so hot thin lines read as alarm-coloured only and lost their
+            # voltage class.
+            #
+            # Past 100% the line is also DASHED and widened. Pattern is the
+            # standard colour-independent alarm channel — green-vs-red is the
+            # classic protanopia collision, and this diagram is the surface most
+            # likely to be projected in a room.
+            over = loading >= 1.0
             fig.add_trace(go.Scatter(
                 x=[x0, x1], y=[y0, y1], mode="lines",
-                line=dict(color=band_color, width=max(1.6, e.get("kv_width", 2) * 0.55)),
+                line=dict(color=band_color,
+                          width=e.get("kv_width", 2) * (0.75 if over else 0.5),
+                          dash="dash" if over else "solid"),
                 showlegend=False, hoverinfo="skip"))
 
         # ── Flow arrows: count and size track MW ────────────────────────────
@@ -196,6 +209,42 @@ def one_line_diagram(
     fig.update_xaxes(visible=False)
     fig.update_yaxes(visible=False, scaleanchor="x", scaleratio=1)
     return fig
+
+
+def loading_key(sol: pf.FlowSolution | None = None) -> str:
+    """Key strip for the loading bands, generated from LOAD_BANDS itself.
+
+    These colours are the diagram's primary operational signal and were
+    previously explained nowhere on screen — an operator knows the convention,
+    a programme manager does not, and the narration only says "running hot".
+
+    Built from the band table so the key can never drift from the rendering.
+    Shows a live count per band when a solution is supplied.
+    """
+    counts: dict[str, int] = {}
+    if sol is not None:
+        for ld in sol.loading.values():
+            counts[pf.loading_band(ld)[1]] = counts.get(pf.loading_band(ld)[1], 0) + 1
+
+    lo = 0.0
+    cells = []
+    for limit, color, label in pf.LOAD_BANDS:
+        if limit == float("inf"):
+            rng = f"&ge; {lo * 100:.0f}%"
+        elif lo == 0.0:
+            rng = f"&lt; {limit * 100:.0f}%"
+        else:
+            rng = f"{lo * 100:.0f}–{limit * 100:.0f}%"
+        n = counts.get(label)
+        tally = f'<span class="ct">{n}</span>' if n else ""
+        dash = ' style="border-bottom:2px dashed ' + color + ';background:none;height:0"' \
+            if label == "OVERLOAD" else f' style="background:{color}"'
+        cells.append(f'<div class="lk"><span class="sw"{dash}></span>'
+                     f'<span class="rg">{rng}</span>'
+                     f'<span class="lb" style="color:{color}">{label}</span>{tally}</div>')
+        lo = limit
+    return ('<div class="loadkey"><span class="hdr">Line loading, % of rating</span>'
+            + "".join(cells) + '</div>')
 
 
 # ── Instruments ──────────────────────────────────────────────────────────────

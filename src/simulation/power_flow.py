@@ -47,10 +47,16 @@ KV_MIN_MVA = {c["kv"]: c["min_mva"] for c in VOLTAGE_CLASSES}
 
 # Loading thresholds against the line's normal rating. These mirror typical
 # operator alarm bands: watch at 80%, alarm at 95%, emergency past 100%.
+# Bands are (upper_limit, colour, label). Colours are deliberately spread across
+# hue AND lightness: amber #ffc857 against orange #ff9f1c was near-identical for
+# everyone at 2 px line width, let alone under colour-vision deficiency. The
+# band WORD is the authoritative channel — it appears in hover text and in the
+# key strip under the diagram — with colour and, past 100%, line pattern as
+# redundant reinforcement.
 LOAD_BANDS = [
     (0.80, "#3ddc97", "normal"),
-    (0.95, "#ffc857", "watch"),
-    (1.00, "#ff9f1c", "alarm"),
+    (0.95, "#ffd166", "watch"),
+    (1.00, "#f4622a", "alarm"),
     (float("inf"), "#ff2d55", "OVERLOAD"),
 ]
 
