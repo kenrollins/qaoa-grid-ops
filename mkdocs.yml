@@ -8,8 +8,9 @@ repo_url: https://github.com/kenrollins/qaoa-grid-ops
 repo_name: kenrollins/qaoa-grid-ops
 edit_uri: edit/main/site_src/
 copyright: |
-  &copy; 2026 Ken Rollins. Apache-2.0. A personal technical demonstrator, not an
-  official Dell product or reference architecture.
+  &copy; 2026 Ken Rollins. Apache-2.0. A personal exploration — not an official Dell
+  product, reference architecture, or Dell position.
+  <a href="about/">Read the full disclaimer.</a>
 
 # site_src, not docs/: docs/ also holds the internal review artefacts, which are
 # useful in the repository and not intended as a public site. The build script
@@ -118,3 +119,4 @@ nav:
       - 04 - Noise without the density matrix: notes/04-noise-without-the-density-matrix.md
       - 05 - Which method, which machine: notes/05-which-method-which-machine.md
   - Sources: sources.md
+  - About: about.md

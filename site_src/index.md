@@ -11,7 +11,7 @@ hide:
     **Hybrid quantum-classical grid optimization — QAOA microgrid islanding on a Dell Pro
     Max GB10, and where classical simulation of quantum algorithms actually runs out.**
 
-    By **Ken Rollins**, Chief AI Technology Strategist in Dell Federal.
+    By **Ken Rollins**, Federal Field CTO — Emerging Technologies at Dell.
 
 ---
 
