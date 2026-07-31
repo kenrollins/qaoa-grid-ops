@@ -205,10 +205,10 @@ def one_line_diagram(
 
     fig.update_layout(
         template="plotly_dark", paper_bgcolor=COLORS["surface"],
-        plot_bgcolor="#070b12", font=dict(color=COLORS["text"], size=11),
+        plot_bgcolor=COLORS["plot_bg"], font=dict(color=COLORS["text"], size=11),
         margin=dict(l=10, r=10, t=38 if title else 10, b=10), height=height,
         title=dict(text=title, font=dict(size=13)) if title else None,
-        legend=dict(bgcolor="rgba(7,11,18,.75)", bordercolor=COLORS["border"],
+        legend=dict(bgcolor="rgba(5,5,5,.75)", bordercolor=COLORS["border"],
                     borderwidth=1, font=dict(size=10), orientation="v",
                     x=1.0, xanchor="right", y=1.0),
         showlegend=True)

@@ -28,7 +28,7 @@ def render(backend: dict) -> None:
     st.markdown("### System architecture")
     st.markdown(f"""
 <div class="flow">┌─ xr7620 ──────────────────────────┐         ┌─ Dell Pro Max GB10 ───────────────┐
-│  Grid Ops Command Center          │         │  gridops-qsim  (FastAPI :8600)    │
+│  QAOA Grid Ops Command Center     │         │  gridops-qsim  (FastAPI :8600)    │
 │                                   │         │                                   │
 │  Streamlit + Plotly       :8501   │  VLAN13 │  CuPy / CUDA statevector kernels  │
 │  grid model → QUBO → Ising        │◄──HTTP─►│  CuPy / CUDA 12                   │

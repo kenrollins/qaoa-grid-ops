@@ -2,11 +2,11 @@
 title: About
 ---
 
-# About Grid Ops
+# About QAOA Grid Ops
 
 ## What this project is
 
-Grid Ops is a personal exploration by **Ken Rollins**, Federal Field CTO —
+QAOA Grid Ops is a personal exploration by **Ken Rollins**, Federal Field CTO —
 Emerging Technologies at Dell, into a single question:
 
 **where does classical simulation of quantum algorithms actually run out, and what does
@@ -77,7 +77,7 @@ site build nor CI requires a GPU.
 
 ## License
 
-Grid Ops is released under the **Apache License 2.0**. See `LICENSE` in the repository
+QAOA Grid Ops is released under the **Apache License 2.0**. See `LICENSE` in the repository
 root for the full text.
 
 ## Who to contact

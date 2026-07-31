@@ -1,4 +1,4 @@
-"""Central configuration for Grid Ops.
+"""Central configuration for QAOA Grid Ops.
 
 Every tunable the demo needs lives here so the UI, the engine, and the GB10
 service agree on one set of numbers. Environment variables win over defaults so
@@ -13,21 +13,31 @@ from dataclasses import dataclass, field
 # ── Brand / theme ────────────────────────────────────────────────────────────
 # Dell Technologies federal palette, used by both the CSS and the Plotly charts
 # so the two never drift apart.
+# Kept in step with the :root block in src/ui/style.css. The theme pass
+# restyled the application chrome there but left this dict on the previous
+# palette, so every Plotly figure rendered as a lighter panel floating on the
+# new black background -- in the application AND on the published site, which
+# generates its figures from this same dict.
 COLORS: dict[str, str] = {
-    "bg": "#0a0e17",
-    "surface": "#131a29",
-    "surface_alt": "#1a2438",
-    "border": "#243149",
-    "accent": "#00c8ff",       # Dell cyan — primary accent
-    "accent_dim": "#0a7ea4",
+    "bg": "#000000",
+    "surface": "#0d0d0d",
+    "surface_alt": "#0d1a26",
+    "border": "#0d1a26",
+    "accent": "#0099CC",       # darkened blue — primary accent
+    "accent_dim": "#006699",
     "text": "#e6edf7",
-    "text_dim": "#8fa3c0",
-    "island_a": "#00c8ff",     # microgrid island A
+    "text_dim": "#6a8fa3",
+    "island_a": "#0099CC",     # microgrid island A
     "island_b": "#ff9f1c",     # microgrid island B
     "ok": "#3ddc97",
     "warn": "#ffc857",
     "crit": "#ff5c5c",
-    "line": "#2c3a54",
+    # Gridlines are deliberately NOT the border token: on pure black, #0d1a26
+    # is invisible, and a chart with no gridlines cannot be read off.
+    "line": "#1e2c40",
+    # Plot area, one step below surface. Was hardcoded as "#070b12" in nine
+    # places, which is why it survived the theme pass unchanged.
+    "plot_bg": "#050505",
 }
 
 # ── Compute backend ──────────────────────────────────────────────────────────

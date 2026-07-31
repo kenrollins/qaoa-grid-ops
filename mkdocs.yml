@@ -1,4 +1,4 @@
-site_name: Grid Ops
+site_name: QAOA Grid Ops
 site_description: >-
   Hybrid quantum-classical grid optimization — QAOA microgrid islanding on a
   Dell Pro Max GB10, with real DC power flow and measured simulation limits.

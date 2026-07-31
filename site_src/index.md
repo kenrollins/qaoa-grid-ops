@@ -1,11 +1,11 @@
 ---
-title: Grid Ops
+title: QAOA Grid Ops
 hide:
   - navigation
   - toc
 ---
 
-# Grid Ops
+# QAOA Grid Ops
 
 !!! quote ""
     **Hybrid quantum-classical grid optimization — QAOA microgrid islanding on a Dell Pro

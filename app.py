@@ -1,4 +1,4 @@
-"""Grid Ops — Hybrid Quantum-Classical Grid Optimization.
+"""QAOA Grid Ops — Hybrid Quantum-Classical Grid Optimization.
 
 Streamlit entrypoint. Runs on xr7620; the statevector runs on the Dell Pro Max
 GB10 across VLAN 13. See BRIEF.md for the design and the claim this demonstrates.
@@ -30,7 +30,7 @@ from src.ui.views import notes as notes_view
 from src.ui.views import sources as sources_view
 
 st.set_page_config(
-    page_title="Grid Ops — Hybrid Quantum-Classical Grid Optimization",
+    page_title="QAOA Grid Ops — Hybrid Quantum-Classical Grid Optimization",
     page_icon="⚡", layout="wide", initial_sidebar_state="expanded",
 )
 st.markdown(ui.load_css(), unsafe_allow_html=True)

@@ -115,7 +115,7 @@ def memory_wall_figure() -> go.Figure:
             y=math.log10(gb), yref="y", text=label, showarrow=False,
             xanchor="left" if left else "right", yanchor="bottom",
             font=dict(color=color, size=10),
-            bgcolor="rgba(7,11,18,.86)", borderpad=2)
+            bgcolor="rgba(5,5,5,.86)", borderpad=2)
 
     # Where the GB10 actually lands on each curve.
     gb10 = 128 * 2**30
@@ -135,11 +135,11 @@ def memory_wall_figure() -> go.Figure:
         hovertemplate="GB10 noisy ceiling<extra></extra>"))
 
     fig.update_layout(
-        template="plotly_dark", paper_bgcolor=COLORS["surface"], plot_bgcolor="#070b12",
+        template="plotly_dark", paper_bgcolor=COLORS["surface"], plot_bgcolor=COLORS["plot_bg"],
         font=dict(color=COLORS["text"], size=12), height=470,
         margin=dict(l=60, r=30, t=50, b=50),
         title=dict(text="The wall — memory required to simulate n qubits", font=dict(size=14)),
-        legend=dict(bgcolor="rgba(7,11,18,.8)", x=0.02, y=0.98, font=dict(size=11)))
+        legend=dict(bgcolor="rgba(5,5,5,.8)", x=0.02, y=0.98, font=dict(size=11)))
     fig.update_xaxes(title="Qubits", gridcolor=COLORS["line"], dtick=5)
     # Clamp the y-range to where the hardware actually lives. Plotting the
     # density-matrix curve to n=55 spans ~27 decades, which squeezed every
@@ -160,7 +160,7 @@ def scaling_measured_figure() -> go.Figure:
         text=[f"{s:.2f}s" for _, s in GB10_MEASURED], textposition="outside",
         hovertemplate="%{x} qubits<br>%{y:.2f} s per energy evaluation<extra></extra>"))
     fig.update_layout(
-        template="plotly_dark", paper_bgcolor=COLORS["surface"], plot_bgcolor="#070b12",
+        template="plotly_dark", paper_bgcolor=COLORS["surface"], plot_bgcolor=COLORS["plot_bg"],
         font=dict(color=COLORS["text"], size=12), height=330,
         margin=dict(l=60, r=30, t=50, b=45), showlegend=False,
         title=dict(text=f"Time per evaluation — {MEASURED_NOTE}", font=dict(size=13)))
@@ -238,7 +238,7 @@ def crossover_figure() -> go.Figure:
                            text=label.split(" · ")[0], showarrow=False,
                            xanchor="left" if left else "right", yanchor="bottom",
                            font=dict(color=color, size=9),
-                           bgcolor="rgba(7,11,18,.82)", borderpad=2)
+                           bgcolor="rgba(5,5,5,.82)", borderpad=2)
 
     fig.add_vline(x=50, line=dict(color=COLORS["warn"], width=2))
     fig.add_annotation(x=50, y=1e9,
@@ -246,11 +246,11 @@ def crossover_figure() -> go.Figure:
                        font=dict(color=COLORS["warn"], size=11), xshift=-60)
 
     fig.update_layout(
-        template="plotly_dark", paper_bgcolor=COLORS["surface"], plot_bgcolor="#070b12",
+        template="plotly_dark", paper_bgcolor=COLORS["surface"], plot_bgcolor=COLORS["plot_bg"],
         font=dict(color=COLORS["text"], size=12), height=490,
         margin=dict(l=65, r=30, t=52, b=50),
         title=dict(text="What it costs to hold a quantum state", font=dict(size=14)),
-        legend=dict(bgcolor="rgba(7,11,18,.85)", x=0.02, y=0.98, font=dict(size=11)))
+        legend=dict(bgcolor="rgba(5,5,5,.85)", x=0.02, y=0.98, font=dict(size=11)))
     fig.update_xaxes(title="Qubits", gridcolor=COLORS["line"], dtick=5)
     fig.update_yaxes(title="Memory (GB, log scale)", type="log", gridcolor=COLORS["line"],
                      range=[-9, 11])

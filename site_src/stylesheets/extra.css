@@ -1,14 +1,46 @@
-/* Grid Ops — carries the app's palette onto the published site so the two read
-   as one project. */
+/* QAOA Grid Ops — carries the app's palette onto the published site so the two
+   read as one project. Token values are taken from src/ui/style.css; when that
+   file's :root block changes, this one has to follow, because the application
+   and the site are styled by two different stylesheets and nothing enforces
+   agreement between them. */
 :root {
-  --md-primary-fg-color:        #0a7ea4;
-  --md-accent-fg-color:         #00c8ff;
+  /* Material paints the whole header with the PRIMARY colour, so setting it to
+     the accent produced a large bright blue slab -- the opposite of the app,
+     where the header is black and #0099CC appears only as a hairline and a
+     glow. Primary is therefore the surface, and the accent stays an accent. */
+  --md-primary-fg-color:        #0d0d0d;   /* surface */
+  --md-primary-fg-color--dark:  #000000;   /* bg */
+  --md-primary-bg-color:        #e6edf7;   /* text on the header */
+  --md-primary-bg-color--light: #6a8fa3;   /* text-dim on the header */
+  --md-accent-fg-color:         #0099CC;
 }
 [data-md-color-scheme="slate"] {
-  --md-default-bg-color:        #0a0e17;
-  --md-code-bg-color:           #131a29;
-  --md-typeset-a-color:         #00c8ff;
+  --md-default-bg-color:        #000000;   /* bg — deep black, not near-black */
+  --md-code-bg-color:           #0d0d0d;   /* surface */
+  --md-default-fg-color:        #e6edf7;   /* text */
+  --md-default-fg-color--light: #6a8fa3;   /* text-dim */
+  --md-typeset-a-color:         #0099CC;
+  --md-footer-bg-color:         #0d0d0d;
+  --md-footer-bg-color--dark:   #000000;
 }
+/* Brutalist geometry: the app removed border radius throughout, so the site
+   does too, or the two read as different products. */
+.md-typeset .admonition, .md-typeset details,
+.figure-wrap, .loadkey, .md-typeset code, .md-typeset pre > code {
+  border-radius: 0;
+}
+/* Headers use the app's serif; body stays sans for long-form reading. */
+.md-typeset h1, .md-typeset h2, .md-typeset h3 {
+  font-family: "EB Garamond", Georgia, serif;
+  letter-spacing: .01em;
+}
+/* One phosphor cue, on the top rule only — the app's animated glow would be
+   noise on a documentation page. */
+.md-header { border-bottom: 2px solid #0099CC; box-shadow: 0 0 24px rgba(0,153,204,.28); }
+.md-tabs { background: #0d0d0d; }
+.md-tabs__link--active, .md-tabs__link:hover { color: #0099CC; opacity: 1; }
+.md-search__form { background: rgba(255,255,255,.06); }
+.md-search__form:hover { background: rgba(0,153,204,.14); }
 /* Plotly fragments: let them fill the column and scroll rather than overflow. */
 .plotly-graph-div { width: 100% !important; }
 .figure-wrap {

@@ -95,7 +95,7 @@ def interference_figure(n_nodes: int, seed: int, layers: int) -> go.Figure:
         for k, f in enumerate(frames)]
 
     fig.update_layout(
-        template="plotly_dark", paper_bgcolor=COLORS["surface"], plot_bgcolor="#070b12",
+        template="plotly_dark", paper_bgcolor=COLORS["surface"], plot_bgcolor=COLORS["plot_bg"],
         font=dict(color=COLORS["text"], size=12), height=390, bargap=0,
         margin=dict(l=60, r=25, t=60, b=45),
         title=dict(text="Every possible answer, and how likely the circuit makes it",
@@ -178,7 +178,7 @@ def landscape_figure(n_nodes: int, seed: int) -> go.Figure:
                   annotation_font=dict(color=COLORS["crit"], size=10))
 
     fig.update_layout(
-        template="plotly_dark", paper_bgcolor=COLORS["surface"], plot_bgcolor="#070b12",
+        template="plotly_dark", paper_bgcolor=COLORS["surface"], plot_bgcolor=COLORS["plot_bg"],
         font=dict(color=COLORS["text"], size=12), height=430,
         margin=dict(l=60, r=25, t=52, b=50),
         title=dict(text="The surface the classical optimizer has to search",
@@ -235,12 +235,12 @@ def tradeoff_figure(n_nodes: int, seed: int) -> go.Figure:
                   annotation_position="top right",
                   annotation_font=dict(color=COLORS["crit"], size=10))
     fig.update_layout(
-        template="plotly_dark", paper_bgcolor=COLORS["surface"], plot_bgcolor="#070b12",
+        template="plotly_dark", paper_bgcolor=COLORS["surface"], plot_bgcolor=COLORS["plot_bg"],
         font=dict(color=COLORS["text"], size=12), height=430,
         margin=dict(l=60, r=25, t=52, b=50),
         title=dict(text=f"Every one of the {len(rows):,} possible answers, "
                         f"and what each one costs", font=dict(size=13)),
-        legend=dict(bgcolor="rgba(7,11,18,.85)", x=0.55, y=0.98, font=dict(size=10)))
+        legend=dict(bgcolor="rgba(5,5,5,.85)", x=0.55, y=0.98, font=dict(size=10)))
     fig.update_xaxes(title=f"customer load switched off (MW, of {total_load:,.0f} total)",
                      gridcolor=COLORS["line"])
     fig.update_yaxes(title="worst line loading (% of rating)", gridcolor=COLORS["line"])
@@ -293,12 +293,12 @@ def trajectory_convergence_figure(n_nodes: int, seed: int, noise_pct: float,
                   annotation_position="top right",
                   annotation_font=dict(color=COLORS["ok"], size=11))
     fig.update_layout(
-        template="plotly_dark", paper_bgcolor=COLORS["surface"], plot_bgcolor="#070b12",
+        template="plotly_dark", paper_bgcolor=COLORS["surface"], plot_bgcolor=COLORS["plot_bg"],
         font=dict(color=COLORS["text"], size=12), height=400,
         margin=dict(l=60, r=25, t=52, b=48),
         title=dict(text="Many cheap random runs, averaged, land on the expensive exact answer",
                    font=dict(size=13)),
-        legend=dict(bgcolor="rgba(7,11,18,.85)", x=0.4, y=0.02, font=dict(size=10)))
+        legend=dict(bgcolor="rgba(5,5,5,.85)", x=0.4, y=0.02, font=dict(size=10)))
     fig.update_xaxes(title="number of noisy runs averaged", gridcolor=COLORS["line"])
     fig.update_yaxes(title="estimated ⟨H⟩", gridcolor=COLORS["line"])
     return fig
@@ -327,12 +327,12 @@ def noise_memory_figure() -> go.Figure:
                   annotation_text="trajectories reach here", annotation_position="top",
                   annotation_font=dict(color=COLORS["ok"], size=10))
     fig.update_layout(
-        template="plotly_dark", paper_bgcolor=COLORS["surface"], plot_bgcolor="#070b12",
+        template="plotly_dark", paper_bgcolor=COLORS["surface"], plot_bgcolor=COLORS["plot_bg"],
         font=dict(color=COLORS["text"], size=12), height=400,
         margin=dict(l=62, r=25, t=52, b=48),
         title=dict(text="Same noise, same machine, two ways of paying for it",
                    font=dict(size=13)),
-        legend=dict(bgcolor="rgba(7,11,18,.85)", x=0.02, y=0.98, font=dict(size=11)))
+        legend=dict(bgcolor="rgba(5,5,5,.85)", x=0.02, y=0.98, font=dict(size=11)))
     fig.update_xaxes(title="Qubits", gridcolor=COLORS["line"], dtick=2)
     fig.update_yaxes(title="Memory (GB, log scale)", type="log", gridcolor=COLORS["line"])
     return fig

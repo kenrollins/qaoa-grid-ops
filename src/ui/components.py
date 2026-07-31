@@ -46,7 +46,7 @@ def header_html(backend_label: str, backend_state: str, detail: str) -> str:
     return f"""
 <div class="gridops-header">
   <div>
-    <div class="title">GRID <span class="accent">OPS</span></div>
+    <div class="title">QAOA GRID <span class="accent">OPS</span></div>
     <div class="sub">Hybrid Quantum-Classical Contingency Optimization</div>
   </div>
   <div style="flex:1"></div>
