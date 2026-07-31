@@ -17,11 +17,14 @@ from dataclasses import dataclass, field
 # src/ui/style.css and the published site's extra.css from this dict, and
 # tests/test_theme.py fails the build if either drifts from it.
 #
-# Not pure black. Near-white text on #000 at paragraph length causes halation --
-# the glyph edges bloom and the eye cannot settle -- which made the site's prose
-# genuinely hard to read. The background is lifted off black with a slight blue
-# cast and the body text comes down from full white. The application matches, so
-# the two surfaces stay one product.
+# Not pure black, and not white text. Near-white on #000 at paragraph length
+# causes halation -- the glyph edges bloom and the eye cannot settle -- which
+# made the site's prose genuinely hard to read. The background is lifted off
+# black with a slight blue cast and the body text is stepped back from white
+# twice: #e6edf7 -> #dbe4f0 -> #c4cfdd, which is 12.2:1 here, still comfortably
+# past WCAG AAA (7:1). Softer is only worth doing while it stays legible, so
+# the value was measured rather than eyeballed. The application matches, so the
+# two surfaces stay one product.
 #
 # Kept in step with the :root block in src/ui/style.css. The theme pass
 # restyled the application chrome there but left this dict on the previous
@@ -35,7 +38,7 @@ COLORS: dict[str, str] = {
     "border": "#1b2433",
     "accent": "#0099CC",       # darkened blue — primary accent
     "accent_dim": "#006699",
-    "text": "#dbe4f0",
+    "text": "#c4cfdd",
     "text_dim": "#6a8fa3",
     "island_a": "#0099CC",     # microgrid island A
     "island_b": "#ff9f1c",     # microgrid island B
