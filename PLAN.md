@@ -45,6 +45,8 @@ The physics is right; the theater is not yet.
 - [x] ⚛️ Quantum explainer tab — audience-facing, states plainly this is simulation not a QPU
 - [x] Architecture promoted to its own page (system diagram, request path, deployment, security)
 - [x] `tools/gb10-gpu` claim/release/status — GB10 residency, mirrors `l4-fleet`
+      (2026-08-26: now a thin client of `gridops-residency`, so the CLI and the UI
+      cannot evacuate the machine independently of each other)
 - [x] `POST /qaoa/verify` wired into Tab 3 as a live button (measures ~3.4e-17).
 - [ ] Show the exact-optimum comparison as a first-class panel, not a text card.
       Brute force is affordable to ~20 qubits; make optimality *visible*.
@@ -138,9 +140,17 @@ statevector ≈ 1 TB of traffic, and the GB10's unified memory does ~270 GB/s.
       **Do not add passwordless sudo** — nothing here needs root at runtime, and
       a standing grant weakens the host to save one password prompt.
 - [ ] Move `~/gridops` → `/opt/gridops` as part of that same sudo step.
-- [ ] Decide GB10 memory policy vs `nim-llama8b`. Today they contend for the same
-      unified pool: NIM resident ⇒ ~27 qubit ceiling; NIM stopped ⇒ 30. Either
-      accept 27 as the demo number, or script claim/release around a run.
+- [x] Integrate residency with the GB10 vLLM orchestrator. Claim records and unloads
+      the currently resident models through `:9000`; release restores that exact set.
+- [x] **`gridops-residency`** (2026-08-26) — the owner-only control plane at
+      `:8610`, systemd `--user` on the GB10. Serialized and idempotent, durable
+      evacuation record, progress reporting, lease with automatic release, no
+      public route, no browser path. Enforces `lab-owner` itself against the
+      forward-auth identity the app carries; the UI's buttons are courtesy, not
+      control. `services/gb10_residency/README.md`.
+- [ ] Give `gridops-residency` the same systemd treatment as qsim when M5's sudo
+      step happens — today it is a user unit under `~`, which is correct for now
+      but ties the control plane's lifetime to the login lingering.
 - [ ] Health/readiness endpoint already exists — add it to the portal catalog.
 
 ## M6 — Depth and range
@@ -152,6 +162,23 @@ statevector ≈ 1 TB of traffic, and the GB10's unified memory does ~270 GB/s.
 - [ ] 3+ islands (one-hot / multi-way partition). Currently strictly bipartite.
 - [ ] Warm-start QAOA from a classical heuristic (spectral partition) and show
       the improvement — strong "algorithm development" content.
+
+## M7 — Algorithm Lab (2026-08-26)
+
+- [x] Versioned experiment records with quantum, operational, backend, and provenance fields.
+- [x] Session run history and side-by-side comparison workspace.
+- [x] JSON/CSV export and explicitly requested snapshots in `data/experiments/`.
+- [x] Main-workflow ideal / finite-shot / depolarizing-noise comparison.
+- [x] Guided baseline, under-trained, and improved hypotheses; advanced controls retained.
+- [x] Auditable sparse-connectivity routing estimate, clearly separated from transpilation.
+- [x] Live memory ceiling enforced before allocating or dispatching a run.
+- [x] Emulator-fitted operational QUBO and controlled exhaustive comparison against the analytic
+      formulation. Four 8-node cases improved; held-out NRMSE 0.79–0.92 keeps the limitation
+      visible. A true auxiliary-variable deficit formulation remains a separate experiment.
+- [ ] Warm-start QAOA and parameter transfer with evaluation-count comparison.
+- [ ] Target-specific transpilation for a named device topology and gate set.
+- [ ] IEEE 14/30/57-bus import and robustness sweeps across faults and seeds.
+- [ ] Remote optimizer progress streaming; the current JSON request is not a streaming transport.
 
 ---
 

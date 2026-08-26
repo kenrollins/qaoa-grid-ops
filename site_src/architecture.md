@@ -68,9 +68,9 @@ Two consequences that only show up on unified memory:
 - **The qubit ceiling is live, not a constant.** It is computed from *free* memory at
   request time, because the GPU's memory is shared with everything else resident on the
   machine.
-- **A neighbour lowers the ceiling.** A resident 8B NIM holding ~59 GB does not merely
-  slow a run — it drops the ceiling from 30 qubits to about 27. Which is why the GPU is
-  claimed rather than shared.
+- **A neighbour lowers the ceiling.** Models resident through the GB10 orchestrator do
+  not merely slow a run; they reduce the largest state that fits. Which is why the GPU
+  is claimed rather than shared.
 
 ## GPU residency — claim and release
 
@@ -79,9 +79,17 @@ and **releases** it so the default inference tenant returns.
 
 | `tools/gb10-gpu` | Effect |
 |---|---|
-| `claim` | stop the resident NIM → start `gridops-qsim` → full 30-qubit ceiling. **Takes `nim/*` off the inference gateway until released.** |
-| `release` | stop `gridops-qsim` → restart the NIM → inference restored |
-| `status` | what is resident, memory in use, and the live qubit ceiling |
+| `claim` | record and unload resident orchestrator models → start `gridops-qsim`. **GB10-backed LiteLLM lanes are unavailable until released.** |
+| `release` | stop `gridops-qsim` → restore exactly the recorded set |
+| `status` | what is resident, memory in use, and the live qubit ceiling — non-mutating |
+
+Both the CLI and the application's residency panel call one control plane,
+`gridops-residency`, rather than driving the orchestrator themselves. One
+serialized path, one durable record of what was resident, and a lease that
+releases the machine automatically if a demo ends without anyone saying so.
+The simulator is a **typed** service, not a model lane: the inference gateway
+routes language models, and arbitration between the two is residency, not
+request routing.
 
 ## The four software layers
 

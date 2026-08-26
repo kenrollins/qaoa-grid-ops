@@ -18,7 +18,14 @@ audience explainer) and **Architecture** (`architecture.py`).
 Deployment is environment-specific and lives outside this repository. In the
 authoring environment it runs as a container on an isolated VLAN behind an
 identity proxy; `LAB.md` (git-ignored) records that allocation. Nothing in the
-application depends on it — set `GB10_QSIM_URL` and it runs anywhere.
+application depends on it — set `GB10_QSIM_URL` and it runs anywhere, with
+`src/lab/` (identity + residency) inert.
+
+**Audience: owner-only since 2026-08-26.** It was a guest-visible demo until it
+grew controls that mutate GB10 residency — taking shared silicon away from the
+rest of the lab is an operator action, not a visitor's button. The boundary is
+the identity proxy's group binding; `src/lab/identity.py` only decides what to
+render, and the residency service re-checks the group itself.
 
 ## Stack
 
@@ -35,13 +42,19 @@ application depends on it — set `GB10_QSIM_URL` and it runs anywhere.
    run on the GB10. That is why compute is a separate service and why the GPU
    path is cuStateVec, not Aer. The x86 Aer install on xr7620 is a local-dev
    convenience only — it is **not** the product path.
-2. **The GB10's memory is UNIFIED and shared with inference.** `nim-llama8b`
-   holds ~59 GB when running, dropping the ceiling from 30 qubits to ~27. An
+2. **The GB10's memory is UNIFIED and shared with inference.** Models loaded by
+   the GB10 vLLM orchestrator consume nearly the whole pool. An
    over-allocation here does not just fail the request — it can evict a
    neighbour's model. `MEMORY_SAFETY` in the service guards this; don't raise it
    casually. Use `tools/gb10-gpu {claim|release|status}` — same residency
-   discipline as the lab's `l4-fleet`. ⚠ `claim` takes **`nim/*` off the LiteLLM
-   gateway** until `release`.
+   discipline as the lab's `l4-fleet`. ⚠ `claim` unloads the currently resident
+   GB10 models through the orchestrator, so their LiteLLM lanes are unavailable
+   until `release` restores exactly what was resident.
+   Both the CLI and the UI are thin faces on **`gridops-residency`**
+   (`10.0.13.200:8610`, owner-only, no public route) — never drive the
+   orchestrator or qsim directly, or you defeat the lock and the durable record
+   that make an interrupted claim recoverable. See
+   `services/gb10_residency/README.md`.
 3. **Never report one "approximation ratio."** ⟨H⟩ averages the whole
    measurement distribution (~0.25); the plan actually returned is the **exact
    optimum** (1.000). Conflating them made the algorithm look broken during

@@ -127,7 +127,7 @@ exposes that check rather than asking anyone to trust it.
 
 ## Measured facts (2026-07-29, on the real hardware)
 
-GB10: aarch64, compute capability **12.1**, 130.6 GiB unified, `nim-llama8b` stopped.
+GB10: aarch64, compute capability **12.1**, 130.6 GiB unified, inference evacuated.
 
 | qubits | statevector | working set | diag build | 1 energy eval |
 |---|---|---|---|---|
@@ -231,11 +231,19 @@ is more valuable to this audience than hiding it.
 
 ## Lab integration status
 
-Not yet a registered tenant — **no VLAN-13 address, no Caddy route, no Authentik
-app, no public DNS.** It runs on xr7620 at `:8501` and reaches the GB10 directly
-at the compute service endpoint. See PLAN.md M4 for deployment.
+**Registered and live.** This paragraph said "not yet a registered tenant — no
+VLAN-13 address, no Caddy route, no Authentik app, no public DNS" long after all
+four existed; corrected 2026-08-26. It runs as a container on VLAN 13 behind the
+lab's identity proxy, and reaches the GB10 at the compute service endpoint.
 
-⚠ **`nim-llama8b` on the GB10 is currently STOPPED.** It was holding 59 GB of the
-GB10's unified memory (leaving only 5.8 GB, a ~27-qubit ceiling). Restart with
-`ssh gb10 'docker start nim-llama8b'` — this restores `nim/*` on the LiteLLM
-gateway and drops the qubit ceiling back to ~27.
+**Owner-only since 2026-08-26** (it was guest-visible). The demo gained controls
+that mutate GB10 residency, and a demo that can take shared silicon away from
+the rest of the lab does not belong one click from a visitor — however good it
+looks on a demo floor.
+
+The GB10 uses the vLLM orchestrator; the NIM container it once stopped is
+retired. `claim` records and unloads the resident model set before starting qsim;
+`release` restores that exact set. Both go through `gridops-residency`, an
+owner-only control plane on the GB10 with a durable evacuation record and a
+lease. GB10-backed inference lanes are unavailable while the simulator holds the
+machine — the gateway itself stays up.

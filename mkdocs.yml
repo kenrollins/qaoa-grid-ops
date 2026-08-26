@@ -111,6 +111,10 @@ nav:
   - How It Works: how-it-works.md
   - Architecture: architecture.md
   - Hardware: hardware.md
+  # HAND-MAINTAINED, and it has silently fallen behind before: build_site.py
+  # copies every note in docs/journal/notes/, so a note omitted here is built
+  # and published but reachable only from the Overview index. Add the row when
+  # you add the note.
   - Technical Notes:
       - Overview: notes/index.md
       - 01 - What QAOA actually computes: notes/01-what-qaoa-computes.md
@@ -118,5 +122,10 @@ nav:
       - 03 - What a QUBO cannot express: notes/03-what-a-qubo-cannot-express.md
       - 04 - Noise without the density matrix: notes/04-noise-without-the-density-matrix.md
       - 05 - Which method, which machine: notes/05-which-method-which-machine.md
+      - 06 - Why emulation needs an experiment loop: notes/06-why-emulation-needs-an-experiment-loop.md
+      - 07 - What the first Algorithm Lab slice proves: notes/07-what-the-first-algorithm-lab-slice-proves.md
+      - 08 - Can emulation train a better QUBO: notes/08-can-emulation-train-a-better-qubo.md
+      - 09 - Who owns the GB10 while a simulation runs: notes/09-who-owns-the-gb10.md
+      - 10 - An owner-only hand on the GB10: notes/10-an-owner-only-hand-on-the-gb10.md
   - Sources: sources.md
   - About: about.md

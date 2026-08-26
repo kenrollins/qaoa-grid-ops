@@ -1,0 +1,30 @@
+# systemd USER unit (rollik, linger enabled) — the same shape as
+# gb10-vllm-orchestrator.service. Never sudo; `systemctl --user`.
+#
+#   install:  cp gridops-residency.service ~/.config/systemd/user/
+#             systemctl --user daemon-reload
+#             systemctl --user enable --now gridops-residency
+#   logs:     journalctl --user -u gridops-residency -f
+[Unit]
+Description=GB10 residency control (Grid Ops claim/release)
+Documentation=file:///home/rollik/gridops/services/gb10_residency/README.md
+# Not a hard dependency: the residency API must stay up to REPORT that the
+# orchestrator is down, and to refuse a claim it cannot make safely.
+After=network-online.target gb10-vllm-orchestrator.service
+Wants=network-online.target
+
+[Service]
+Type=exec
+WorkingDirectory=%h/gridops/services/gb10_residency
+# 600, owned by the user. Holds GRIDOPS_APP_TOKEN and GRIDOPS_OPERATOR_TOKEN.
+EnvironmentFile=%h/.config/gridops/residency.env
+ExecStart=%h/gridops/.venv/bin/uvicorn residency:app --host 10.0.13.200 --port 8610 --no-access-log
+Restart=always
+RestartSec=5
+# The service reconciles its durable state on every start, so a restart is safe
+# and never mutates the GB10 on its own.
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+[Install]
+WantedBy=default.target

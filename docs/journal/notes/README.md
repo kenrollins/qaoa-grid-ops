@@ -20,6 +20,11 @@ See `../STYLE.md` for the standards these are written to.
 | [03](03-what-a-qubo-cannot-express.md) | What can a QUBO encoding express, and what falls off the edge? | Note 01 |
 | [04](04-noise-without-the-density-matrix.md) | How do you simulate noise without paying 2^(2n)? | Note 01 |
 | [05](05-which-method-which-machine.md) | Which simulation method needs which machine? | Notes 01, 04 |
+| [06](06-why-emulation-needs-an-experiment-loop.md) | What makes quantum emulation an algorithm-development tool? | Note 01 |
+| [07](07-what-the-first-algorithm-lab-slice-proves.md) | What does the first Algorithm Lab slice prove? | Note 06 |
+| [08](08-can-emulation-train-a-better-qubo.md) | Can emulation train a better operational QUBO? | Notes 03, 06 |
+| [09](09-who-owns-the-gb10.md) | Who owns the GB10 while a simulation runs? | None |
+| [10](10-an-owner-only-hand-on-the-gb10.md) | What changes when the demo can take the machine itself? | Note 09 |
 
 ## Planned
 

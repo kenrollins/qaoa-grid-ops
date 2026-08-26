@@ -15,7 +15,11 @@ LOG="${GRIDOPS_LOG:-$GRIDOPS_ROOT/qsim.log}"
 
 cd "$GRIDOPS_ROOT/services/gb10_qsim"
 
-pkill -f "uvicorn server:app" 2>/dev/null || true
+# Match the FULL command line, not just "uvicorn server:app". gridops-residency
+# runs uvicorn on this same box; a loose pattern here would have this script kill
+# the control plane that invoked it, mid-evacuation. (residency runs as
+# `residency:app` for the same reason — belt and braces.)
+pkill -f "uvicorn server:app --host 0.0.0.0 --port $PORT" 2>/dev/null || true
 sleep 1
 
 GRIDOPS_ROOT="$GRIDOPS_ROOT" setsid nohup \

@@ -17,7 +17,7 @@ air-gapped, with no cloud QPU.
 ## Quick start
 
 ```bash
-# 1. Claim the GB10 for the demo. Stops the resident NIM and starts gridops-qsim.
+# 1. Claim the GB10. Evacuates orchestrator models and starts gridops-qsim.
 cd /data/code/qaoa-grid-ops
 ./tools/gb10-gpu claim                          # → CLAIMED, ceiling 30 qubits
 
@@ -71,7 +71,7 @@ services/gb10_qsim/
 
 ## Pages
 
-### ⚡ Command Center — four tabs
+### Application pages
 
 1. **🗺️ Grid Topology & Microgrid Islanding** — transmission network colored by
    island assignment, severed lines dashed red, QAOA convergence, MW accounting,
@@ -85,6 +85,13 @@ services/gb10_qsim/
 4. **📊 Simulation Capability** — how large a problem this machine holds, and the
    exponential memory wall. *Not* a speed comparison — see BRIEF.md.
 
+The **Algorithm Lab** retains each completed solve as a versioned experiment. It
+supports side-by-side quantum and operational metrics, JSON/CSV export, explicit
+snapshots under `data/experiments/`, ideal/finite-shot/noisy comparison of the same
+optimized circuit, and an auditable estimate of routing overhead on sparse device
+connectivity. Guided presets provide baseline, under-trained, and improved experiments;
+Advanced mode preserves the full parameter controls.
+
 ### 🏗️ Architecture — its own page
 
 Full system diagram, the forced x86_64/aarch64 constraint, the four-layer stack,
@@ -93,18 +100,27 @@ API surface, GPU claim/release policy, measured performance, and security postur
 
 ## GPU residency — claim before you demo
 
-The GB10's 128 GiB is **unified** memory shared between CPU and GPU, so the
-resident NIM (`nim-llama8b`, ~59 GiB) does not merely slow a run — it lowers the
-**qubit ceiling from 30 to ~27**, because the ceiling *is* free memory. Same
-discipline as the lab's `l4-fleet`:
+The GB10's 128 GiB is **unified** memory shared between CPU and GPU. Models
+resident through the GB10 vLLM orchestrator consume nearly the whole pool, so
+the qubit ceiling *is* a function of free memory. Same discipline as the lab's
+`l4-fleet`:
 
 ```bash
-./tools/gb10-gpu claim     # stop NIM → start gridops-qsim → 30-qubit ceiling
-./tools/gb10-gpu status    # what is resident, VRAM used, live ceiling
-./tools/gb10-gpu release   # stop gridops-qsim → restart NIM → nim/* restored
+./tools/gb10-gpu status    # what is resident, the live ceiling — NON-MUTATING
+./tools/gb10-gpu claim     # record + evacuate the loaded set → start gridops-qsim
+./tools/gb10-gpu release   # stop qsim → restore exactly the recorded set
 ```
 
-⚠ `claim` takes **`nim/*` off the LiteLLM gateway** until you `release`.
+⚠ `claim` temporarily removes the GB10-backed model lanes from LiteLLM until
+`release`. The gateway stays up; requests requiring those lanes will not succeed.
+
+Both the CLI and the Command Center's **GB10 residency** sidebar are faces on one
+service — `gridops-residency`, an **owner-only** control plane on the GB10
+(`10.0.13.200:8610`, no public route). It serializes every operation, keeps a
+durable record of what was resident, restores exactly that set, and auto-releases
+when its lease expires. It re-checks `lab-owner` itself; the UI hides the buttons
+as a courtesy, not as a control. See
+[`services/gb10_residency/README.md`](services/gb10_residency/README.md).
 
 ## Deploying the compute service
 
@@ -112,6 +128,18 @@ discipline as the lab's `l4-fleet`:
 rsync -a --exclude __pycache__ src/ gb10:gridops/src/
 rsync -a services/gb10_qsim/ gb10:gridops/services/gb10_qsim/
 ssh gb10 '~/gridops/services/gb10_qsim/start.sh'
+```
+
+Do not start qsim by hand during a demo — go through `tools/gb10-gpu claim`, or
+the orchestrator's models and the simulator will fight over the same unified
+pool with nothing recording what was there first.
+
+The control plane deploys alongside it:
+
+```bash
+rsync -a --delete services/gb10_residency/ gb10:gridops/services/gb10_residency/
+ssh gb10 'cp ~/gridops/services/gb10_residency/gridops-residency.service ~/.config/systemd/user/ \
+          && systemctl --user daemon-reload && systemctl --user restart gridops-residency'
 ```
 
 | endpoint | purpose |

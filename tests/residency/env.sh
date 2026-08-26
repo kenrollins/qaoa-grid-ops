@@ -1,0 +1,10 @@
+export GRIDOPS_ORCHESTRATOR_URL=http://127.0.0.1:19000
+export GRIDOPS_QSIM_URL=http://127.0.0.1:18600
+export GRIDOPS_QSIM_START=/home/rollik/restest/start_qsim.sh
+export GRIDOPS_QSIM_PATTERN="uvicorn stub_qsim:app --host 127.0.0.1 --port 18600"
+export GRIDOPS_STATE_DIR=/home/rollik/restest/state
+export GRIDOPS_APP_TOKEN=app-test-token
+export GRIDOPS_OPERATOR_TOKEN=op-test-token
+export GRIDOPS_ALLOW=127.0.0.1/32
+export GRIDOPS_LEASE_TICK=2
+export GRIDOPS_QSIM_BOOT_SECONDS=30
