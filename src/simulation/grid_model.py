@@ -43,7 +43,7 @@ Expanding the squares gives a pure-quadratic Ising model (no local fields):
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from collections.abc import Iterable
 
 import networkx as nx
@@ -63,6 +63,7 @@ class IsingModel:
     n_qubits: int
     couplings: dict[tuple[int, int], float]
     offset: float
+    metadata: dict = field(default_factory=dict)
 
     @property
     def n_terms(self) -> int:
@@ -274,13 +275,19 @@ def load_report(g: nx.Graph, islands: list[list[int]]) -> LoadReport:
     )
 
 
-def build_ising(g: nx.Graph, weights: ObjectiveWeights) -> IsingModel:
+def build_ising(g: nx.Graph, weights: ObjectiveWeights,
+                formulation: str = "analytic") -> IsingModel:
     """Assemble the islanding Hamiltonian described in this module's docstring.
 
     Faulted lines are excluded from the flow term: a tripped line carries no
     power, so cutting it costs nothing and the optimizer must not be paid to
     avoid it.
     """
+    if formulation == "operational-surrogate":
+        return build_operational_surrogate(g)
+    if formulation != "analytic":
+        raise ValueError(f"Unknown objective formulation: {formulation}")
+
     n = g.number_of_nodes()
     p = normalized_injections(g)
 
@@ -333,7 +340,78 @@ def build_ising(g: nx.Graph, weights: ObjectiveWeights) -> IsingModel:
 
     # Drop couplings that rounded to nothing — they cost a two-qubit gate each.
     couplings = {k: v for k, v in couplings.items() if abs(v) > 1e-12}
-    return IsingModel(n_qubits=n, couplings=couplings, offset=offset)
+    return IsingModel(n_qubits=n, couplings=couplings, offset=offset,
+                      metadata={"formulation": "analytic"})
+
+
+def _operational_target(g: nx.Graph, bits: str) -> float:
+    """Dimensionless operator loss used to train the quadratic surrogate."""
+    empty = IsingModel(g.number_of_nodes(), {}, 0.0)
+    report = evaluate_partition(g, empty, bits)
+    opened = {tuple(sorted((u, v))) for u, v, _ in report.severed_lines}
+    from src.simulation import power_flow as pf
+
+    solution = pf.solve(g, opened=opened)
+    total_load = max(solution.total_load_mw, 1.0)
+    live_flow = sum(float(g.edges[u, v].get("base_flow_mw", 0.0))
+                    for u, v in live_edges(g)) or 1.0
+    overload = sum(max(0.0, loading - 1.0) ** 2 for loading in solution.loading.values())
+    return float(
+        4.0 * len(solution.overloads) + 8.0 * overload
+        + solution.shed_mw / total_load
+        + 0.15 * report.interrupted_mw / live_flow
+        + (2.0 if not report.feasible else 0.0)
+    )
+
+
+def build_operational_surrogate(g: nx.Graph, sample_limit: int = 4096,
+                                ridge: float = 1e-6, seed: int = 19) -> IsingModel:
+    """Fit a quadratic Ising proxy to emulator-generated power-flow outcomes."""
+    n = g.number_of_nodes()
+    pairs = [(i, j) for i in range(n) for j in range(i + 1, n)]
+    total = 1 << n
+    count = min(total, sample_limit)
+    rng = np.random.default_rng(seed)
+    if count == total:
+        indices = np.arange(total, dtype=np.uint64)
+    else:
+        half = max(1, count // 2)
+        base = rng.choice(1 << (n - 1), size=half, replace=False)
+        indices = np.concatenate([base, ((1 << n) - 1) - base]).astype(np.uint64)
+
+    spins = np.empty((len(indices), n), dtype=float)
+    targets = np.empty(len(indices), dtype=float)
+    for row, value in enumerate(indices):
+        bits = format(int(value), f"0{n}b")
+        spins[row] = [1.0 if bit == "0" else -1.0 for bit in bits[::-1]]
+        targets[row] = _operational_target(g, bits)
+
+    features = np.empty((len(indices), 1 + len(pairs)), dtype=float)
+    features[:, 0] = 1.0
+    for column, (i, j) in enumerate(pairs, start=1):
+        features[:, column] = spins[:, i] * spins[:, j]
+
+    order = rng.permutation(len(indices))
+    split = min(max(1 + len(pairs), int(0.8 * len(indices))), len(indices))
+    train, test = order[:split], order[split:]
+    gram = features[train].T @ features[train]
+    penalty = np.eye(gram.shape[0]) * ridge
+    penalty[0, 0] = 0.0
+    coeff = np.linalg.solve(gram + penalty, features[train].T @ targets[train])
+    check = test if len(test) else train
+    pred = features[check] @ coeff
+    rmse = float(np.sqrt(np.mean((pred - targets[check]) ** 2)))
+    scale = float(np.std(targets[check])) or 1.0
+    couplings = {pair: float(coeff[k]) for k, pair in enumerate(pairs, start=1)
+                 if abs(coeff[k]) > 1e-12}
+    return IsingModel(
+        n_qubits=n, couplings=couplings, offset=float(coeff[0]),
+        metadata={"formulation": "operational-surrogate",
+                  "training_partitions": len(train),
+                  "validation_partitions": len(check),
+                  "validation_rmse": rmse, "validation_nrmse": rmse / scale,
+                  "target": "security + overload severity + load shed + interrupted flow"},
+    )
 
 
 # ── Reading an answer back out ───────────────────────────────────────────────

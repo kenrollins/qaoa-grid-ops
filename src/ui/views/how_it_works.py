@@ -35,6 +35,7 @@ def render(run=None, n_nodes: int = 12, layers: int = 2, seed: int = 7,
     n = run.model.n_qubits if run else n_nodes
     nc = run.model.n_terms if run else n * (n - 1) // 2
     p = run.result.get("layers", layers) if run else layers
+    formulation = run.model.metadata.get("formulation", "analytic") if run else "analytic"
 
     # ── The honesty callout. Verbatim from the old quantum tab: it is the best
     # paragraph in the app and it has to be the first thing read. ──────────────
@@ -74,17 +75,29 @@ def render(run=None, n_nodes: int = 12, layers: int = 2, seed: int = 7,
     ), unsafe_allow_html=True)
 
     # ── 2, with the solution-space figure that shows what it is choosing between
-    st.markdown(_step(
-        "2", "The operating objective becomes an energy function",
-        "Three competing requirements are encoded as one cost function whose <strong>lowest "
-        "energy is the best islanding plan</strong>. Minimize the power severed by the cut; "
-        "keep each island able to supply its own load; and forbid the degenerate 'put "
-        "everything in one island' answer. This is a <strong>QUBO</strong> — quadratic "
-        "unconstrained binary optimization — and it is exactly the form quantum optimization "
-        "consumes.",
-        "H(s) = A·Σ w_ij(1 − s_i s_j)/2  +  B·(Σ p_i s_i)²  +  C·(Σ s_i)²\\n"
-        "        ↑ severed flow            ↑ island balance    ↑ non-degenerate"
-    ), unsafe_allow_html=True)
+    if formulation == "operational-surrogate":
+        meta = run.model.metadata
+        objective_desc = (
+            "The emulator evaluated partitions with classical power flow — including load shed "
+            "and thermal overloads — then fitted the best pairwise Ising approximation to those "
+            "operational scores. QAOA consumes that learned <strong>quadratic surrogate</strong>. "
+            "It is not the power-flow equations inside a circuit: held-out normalized error for "
+            f"this fit is <strong>{meta.get('validation_nrmse', 0):.2f}</strong>.")
+        objective_math = (
+            "L_power-flow(s)  ≈  c + Σ_(i<j) J_ij s_i s_j     learned quadratic proxy")
+    else:
+        objective_desc = (
+            "Three competing requirements are encoded as one cost function whose <strong>lowest "
+            "energy is the best islanding plan</strong>. Minimize the power severed by the cut; "
+            "keep each island able to supply its own load; and forbid the degenerate 'put "
+            "everything in one island' answer. This is a <strong>QUBO</strong> — quadratic "
+            "unconstrained binary optimization — and it is exactly the form quantum optimization "
+            "consumes.")
+        objective_math = (
+            "H(s) = A·Σ w_ij(1 − s_i s_j)/2  +  B·(Σ p_i s_i)²  +  C·(Σ s_i)²\\n"
+            "        ↑ severed flow            ↑ island balance    ↑ non-degenerate")
+    st.markdown(_step("2", "The operating objective becomes an energy function",
+                      objective_desc, objective_math), unsafe_allow_html=True)
 
     st.markdown("###### What the objective is choosing between")
     st.markdown("""
@@ -330,4 +343,3 @@ p={v.get('layers')}, on {v.get('backend')}</div>
 </div>""", unsafe_allow_html=True)
     else:
         st.info("Run an optimization to populate the measured statevector distribution.")
-

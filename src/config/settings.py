@@ -111,3 +111,4 @@ class GridSpec:
     generator_fraction: float = 0.3
     extra_edge_fraction: float = 0.25   # beyond the spanning ring
     weights: ObjectiveWeights = field(default_factory=ObjectiveWeights)
+    formulation: str = "analytic"  # analytic | operational-surrogate

@@ -158,15 +158,15 @@ no third-party API, no egress.</div>
   <p>Same discipline as the lab's L4 fleet: a demo <strong>claims</strong> the GPU, gets the
   whole machine, and <strong>releases</strong> it so the default inference tenant returns.</p>
   <p>On the GB10 this matters more than on a discrete GPU, because its memory is
-  <strong>unified</strong> and shared between CPU and GPU. The resident NIM
-  (<code>nim-llama8b</code>) holds ~59 GiB, which does not merely slow a run — it lowers the
-  <strong>qubit ceiling from 30 to ~27</strong>, because the ceiling <em>is</em> free memory.
+  <strong>unified</strong> and shared between CPU and GPU. Models loaded by the GB10 vLLM
+  orchestrator consume nearly the whole pool, which lowers the qubit ceiling because the
+  ceiling <em>is</em> free memory.
   An over-allocation on a unified pool can also evict the neighbour's model outright.</p>
 </div>""", unsafe_allow_html=True)
     st.markdown(ui.card_html("tools/gb10-gpu", _spec([
-        ("gb10-gpu claim", "stop nim-llama8b → start gridops-qsim → full 30-qubit ceiling. "
-                           "<strong>nim/* goes off the LiteLLM gateway</strong> until release."),
-        ("gb10-gpu release", "stop gridops-qsim → restart nim-llama8b → inference restored"),
+        ("gb10-gpu claim", "record and unload resident orchestrator models → start gridops-qsim. "
+                           "<strong>GB10 LiteLLM lanes are unavailable</strong> until release."),
+        ("gb10-gpu release", "stop gridops-qsim → restore exactly the evacuated models"),
         ("gb10-gpu status", "what is resident, VRAM in use, and the live qubit ceiling"),
     ])), unsafe_allow_html=True)
 

@@ -1,8 +1,11 @@
 """Domain model: bit ordering, feasibility, and the MW numbers on screen."""
 
 from src.simulation.grid_model import (
-    apply_fault, brute_force_ground_state, evaluate_partition, live_edges,
+    _operational_target, apply_fault, brute_force_ground_state, build_grid,
+    build_ising, build_operational_surrogate, evaluate_partition, live_edges,
 )
+from src.config.settings import GridSpec
+from src.simulation import power_flow as pf
 
 
 def test_bitstring_energy_identity(faulted, model):
@@ -22,6 +25,29 @@ def test_complement_is_the_same_partition(faulted, model):
     assert abs(a.energy - b.energy) < 1e-9
     assert a.interrupted_mw == b.interrupted_mw
     assert sorted(a.island_a) == sorted(b.island_b)
+
+
+def test_operational_surrogate_is_quadratic_auditable_and_symmetric(faulted):
+    model = build_operational_surrogate(faulted, sample_limit=256)
+    assert model.metadata["formulation"] == "operational-surrogate"
+    assert model.metadata["validation_partitions"] > 0
+    assert model.metadata["validation_nrmse"] >= 0
+    bits = "0011001100"
+    comp = "".join("1" if value == "0" else "0" for value in bits)
+    assert abs(evaluate_partition(faulted, model, bits).energy
+               - evaluate_partition(faulted, model, comp).energy) < 1e-9
+
+
+def test_operational_surrogate_improves_the_documented_seed_7_case():
+    spec = GridSpec(n_nodes=8, seed=7)
+    grid = pf.calibrate_ratings(build_grid(spec))
+    line = pf.worst_contingency(grid)
+    grid = apply_fault(grid, [line] if line else [])
+    analytic = build_ising(grid, spec.weights, "analytic")
+    learned = build_ising(grid, spec.weights, "operational-surrogate")
+    analytic_bits, _ = brute_force_ground_state(analytic)
+    learned_bits, _ = brute_force_ground_state(learned)
+    assert _operational_target(grid, learned_bits) < _operational_target(grid, analytic_bits)
 
 
 def test_island_held_only_by_a_faulted_line_is_infeasible(grid, spec):

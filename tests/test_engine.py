@@ -1,5 +1,7 @@
 """Engine: plan selection, and honest reporting of what actually ran."""
 
+import pytest
+
 from src.simulation import power_flow as pf
 from src.simulation import qaoa_engine as eng
 from src.simulation.grid_model import evaluate_partition
@@ -47,7 +49,6 @@ def test_security_outranks_load_shed(faulted, model):
         if secure and overloaded:
             break
     if not (secure and overloaded):
-        import pytest
         pytest.skip("this grid has no secure/overloaded pair to contrast")
     # The overloaded plan sheds LESS; security must still win.
     assert secure[1] >= overloaded[1]
@@ -73,6 +74,20 @@ def test_local_run_never_claims_gb10(monkeypatch, spec, grid):
     assert run.result["backend"] != "gb10", "local run claimed GB10 hardware"
     assert run.warnings, "silent fallback — no warning raised"
     assert "LOCALLY" in run.warnings[0]
+
+
+def test_supplied_graph_must_match_spec(spec, grid):
+    smaller = grid.copy()
+    smaller.remove_node(next(iter(smaller.nodes)))
+    with pytest.raises(ValueError, match="supplied graph"):
+        eng.run_islanding_optimization(spec, graph=smaller, compute_exact=False)
+
+
+def test_run_stops_before_exceeding_live_memory(monkeypatch, spec, grid):
+    monkeypatch.setattr(eng, "select_backend", lambda pref="gb10": eng.BackendInfo(
+        name="local-cpu", label="small", available=True, max_qubits=spec.n_nodes - 1))
+    with pytest.raises(ValueError, match="live ceiling"):
+        eng.run_islanding_optimization(spec, graph=grid, compute_exact=False)
 
 
 def test_run_signature_covers_everything_that_changes_the_answer(spec):

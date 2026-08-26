@@ -87,7 +87,7 @@ def probe_gb10(url: str = GB10_QSIM_URL, timeout: int = 5) -> BackendInfo:
 
     `max_qubits` is reported live rather than hard-coded, because the GB10's
     unified memory is shared with whatever inference workload is resident. The
-    ceiling genuinely moves depending on whether the NIM is loaded, and the demo
+    ceiling genuinely moves depending on which orchestrator models are loaded, and the demo
     should say so instead of pretending the number is a constant.
     """
     info = BackendInfo(name="gb10", label="Dell Pro Max GB10 · Grace Blackwell")
@@ -293,17 +293,22 @@ def run_islanding_optimization(
     """
     t0 = time.perf_counter()
     base = graph if graph is not None else build_grid(spec)
+    if base.number_of_nodes() != spec.n_nodes:
+        raise ValueError(
+            f"GridSpec declares {spec.n_nodes} nodes but the supplied graph has "
+            f"{base.number_of_nodes()}"
+        )
     # Rate the lines against the INTACT network before anything is faulted.
     # Calibrating on an already-faulted grid makes the fault look normal by
     # construction — the post-fault case measured *below* intact loading.
     base = pf.calibrate_ratings(base)
     g = apply_fault(base, fault or [])
-    model = build_ising(g, spec.weights)
+    model = build_ising(g, spec.weights, spec.formulation)
     backend = select_backend(backend_preference)
     warnings: list[str] = []
 
     if backend.max_qubits and spec.n_nodes > backend.max_qubits:
-        warnings.append(
+        raise ValueError(
             f"{spec.n_nodes} qubits exceeds this backend's live ceiling of "
             f"{backend.max_qubits}. Free memory on the target, or reduce the grid."
         )
@@ -652,6 +657,7 @@ def run_signature(spec: GridSpec, layers: int, steps: int, pref: str,
     worse than the recompute it saves.
     """
     w = spec.weights
-    return (spec.n_nodes, spec.seed, round(w.flow, 4), round(w.balance, 4),
+    return (spec.n_nodes, spec.seed, spec.formulation,
+            round(w.flow, 4), round(w.balance, 4),
             round(w.size, 4), int(layers), int(steps), pref,
             tuple(sorted(tuple(sorted(e)) for e in (fault or []))))
