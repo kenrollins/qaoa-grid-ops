@@ -73,12 +73,15 @@ The voltage-class colour convention our diagram follows.
 Per-platform GPU topology: which GPUs form an NVLink domain, how large, per-GPU memory,
 and in-domain versus off-domain bandwidth.
 
-:material-alert: **Also corrected a working assumption.** We believed the RTX PRO 6000
-Blackwell in an XE7745 could be NVLinked as two 4-GPU domains of 384 GB. Dell documents no
-NVLink for that GPU on that platform — eight separate PCIe Gen5 devices at 128 GB/s, so
-the coherent domain is one GPU at 96 GB. The 4-GPU domain exists on that chassis but
-belongs to **H200 NVL** at 564 GB. Independently confirmed: NVIDIA removed NVLink from
-this line after Ampere.
+:material-information: **Which GPUs actually form a domain, on these platforms.** The
+**RTX PRO 6000 Blackwell** has no NVLink — NVIDIA dropped it from this line after Ampere.
+Eight of them in an XE7745 are eight independent PCIe Gen5 devices at 128 GB/s, so the
+coherent domain is **one GPU at 96 GB**, however much memory the chassis holds in total.
+The 4-GPU NVL4 domain on that same chassis belongs to **H200 NVL**, at 564 GB.
+
+That pairing is the clearest case of the ranking inversion on the
+[Hardware](hardware.md) page: 768 GB across eight RTX PRO 6000s simulates **fewer** qubits
+than 564 GB across four H200 NVL, because only the second is one domain.
 
 ## Built on
 

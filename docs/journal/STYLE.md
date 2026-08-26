@@ -80,6 +80,12 @@ notes will be read by people who know the literature.
   of date, which serves the archive and not the reader. If a note cannot be
   understood without knowing what it used to say, it needs rewriting, not a
   banner.
+- **Correct what we published; do not confess what we merely believed.** The
+  test is whether a reader could have carried the wrong idea away. A claim that
+  shipped gets its correction, because someone may be acting on it. A working
+  assumption that never left our own sizing gets no mention at all — just state
+  the fact. Writing "we believed X, and X is false" plants X in a reader who
+  never had it, and spends their trust in the surrounding numbers to do so.
 
 ## Conventions
 
