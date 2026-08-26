@@ -7,10 +7,12 @@ title: About
 ## What this project is
 
 QAOA Grid Ops is a personal exploration by **Ken Rollins**, Federal Field CTO —
-Emerging Technologies at Dell, into a single question:
+Emerging Technologies at Dell, into two connected questions:
 
-**where does classical simulation of quantum algorithms actually run out, and what does
-that mean for the hardware you need to develop them?**
+**Where does classical simulation of quantum algorithms actually run out, and what does
+that mean for the hardware you need to develop them?** And, while exact answers remain
+affordable, **what can emulation reveal about whether the algorithm represents the decision
+we actually care about?**
 
 Controlled microgrid islanding was chosen as the anchor problem because it exercises the
 interesting parts honestly. It is a genuine combinatorial optimization with a real
@@ -20,8 +22,9 @@ between "the optimizer liked it" and "the grid survives it" is most of what make
 kind of work hard.
 
 The grid problem is the vehicle. The argument is that **developing** a quantum algorithm
-is the hard part, that development happens in classical simulation, and that simulation
-hits walls you can compute exactly.
+is the hard part: emulation exposes parameter and formulation failures, supports controlled
+alternatives, and provides ground truth. That development happens in classical simulation,
+and simulation hits walls you can compute exactly.
 
 ## What this project is not
 

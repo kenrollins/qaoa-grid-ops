@@ -30,8 +30,8 @@ def render(backend: dict) -> None:
 <div class="flow">┌─ xr7620 ──────────────────────────┐         ┌─ Dell Pro Max GB10 ───────────────┐
 │  QAOA Grid Ops Command Center     │         │  gridops-qsim  (FastAPI :8600)    │
 │                                   │         │                                   │
-│  Streamlit + Plotly       :8501   │  VLAN13 │  CuPy / CUDA statevector kernels  │
-│  grid model → QUBO → Ising        │◄──HTTP─►│  CuPy / CUDA 12                   │
+│  Streamlit + Plotly       :8501   │  VLAN13 │  cuStateVec mixer kernels         │
+│  grid model → QUBO → Ising        │◄──HTTP─►│  CuPy tiled diagonal · CUDA 12    │
 │  backend probe · run orchestration│  JSON   │  aarch64 · Blackwell sm_121       │
 │  topology · convergence · export  │         │  {total_gb:>5.0f} GiB unified memory        │
 │                                   │         │  live ceiling: {ceiling!s:>2} qubits          │
@@ -45,8 +45,8 @@ def render(backend: dict) -> None:
   <div class="h">The split is forced, not stylistic</div>
   <p><strong>qiskit-aer-gpu publishes x86_64 wheels only.</strong> There is no aarch64 build,
   so Qiskit's GPU simulator <strong>cannot be installed on the GB10 at all</strong>.
-  cuQuantum <em>does</em> ship aarch64 wheels, so the GPU path on Grace Blackwell is
-  CuPy on CUDA.</p>
+  cuQuantum and CuPy <em>do</em> ship aarch64 wheels, so the GPU path on Grace Blackwell
+  uses cuStateVec for the mixer and tiled CuPy kernels for the diagonal cost operation.</p>
   <p>Running the quantum simulation on the GB10 therefore <em>requires</em> separating it
   from a UI that runs elsewhere. This diagram is what the hardware permits, not a preference.</p>
 </div>""", unsafe_allow_html=True)
@@ -63,25 +63,24 @@ generation and load profiles, and the QUBO construction. Holds <strong>no quantu
 
 <div class="layer"><div class="tier">Layer 2 — Quantum Formulation</div>
 <div class="name">QUBO / Ising Model + QAOA Ansatz</div>
-<div class="desc">Three competing objectives — minimize severed flow, hold each island
-power-balanced, forbid the degenerate partition — reduced to a pure-quadratic Ising
-Hamiltonian. The balance term couples <strong>every node to every other node</strong>, so the
-problem is <strong>dense all-to-all</strong>, not the sparse transmission graph. The classical
-outer loop (SciPy COBYLA) tunes the (γ, β) schedule.</div>
+<div class="desc">The analytic formulation reduces three objectives to a pure-quadratic
+Ising Hamiltonian. The alternative formulation labels partitions with DC power flow and fits
+those outcomes onto the same pairwise basis, retaining held-out error. Both are
+<strong>dense all-to-all</strong>. The classical outer loop (SciPy COBYLA) tunes the
+(γ, β) schedule.</div>
 <div class="tech">NumPy · SciPy · shared NumPy/CuPy kernel code</div></div>
 
 <div class="layer"><div class="tier">Layer 3 — Hardware Acceleration</div>
-<div class="name">NVIDIA CUDA · CuPy statevector kernels</div>
+<div class="name">NVIDIA cuQuantum cuStateVec · CuPy · CUDA 12</div>
 <div class="desc">Dense statevector evolution over 2<sup>n</sup> complex amplitudes, executed
 as CUDA kernels on the GPU — the state lives in GPU memory and never returns to the host
 during a run. Because the cost Hamiltonian is diagonal, the cost unitary is applied as a single
 elementwise phase multiply rather than thousands of individual RZZ gates, and ⟨H⟩ is computed
-<strong>exactly</strong>. Memory-tiled throughout so scratch stays bounded as the statevector grows.
-<br><br><strong>Honest note:</strong> these are <strong>CuPy</strong> kernels — general-purpose GPU
-array operations — not NVIDIA's specialised <strong>cuStateVec</strong> quantum kernels. cuQuantum
-is installed and the integration hook exists, but it is not yet on the execution path. Measured
-headroom from closing that gap is roughly 12x at 30 qubits (PLAN.md M3).</div>
-<div class="tech">cupy-cuda12x · CUDA 12 · cuQuantum installed, not yet on the execution path</div></div>
+<strong>exactly</strong>. The mixer executes in place through NVIDIA's specialised
+<strong>cuStateVec applyMatrix</strong> primitive. The diagonal cost unitary remains tiled in
+<strong>CuPy</strong>: moving it to cuStateVec measured no material gain and required another
+full-width complex array. The reported kernel path names what actually initialized.</div>
+<div class="tech">cuquantum-python-cu12 · cupy-cuda12x · CUDA 12</div></div>
 
 <div class="layer hw"><div class="tier">Layer 4 — Dell Infrastructure Backbone</div>
 <div class="name">Dell Pro Max with GB10 — Grace Blackwell</div>
@@ -94,12 +93,28 @@ no third-party API, no egress.</div>
 <div class="tech">TAA-compliant · air-gappable · {backend.get('device', 'NVIDIA GB10')}</div></div>
 """, unsafe_allow_html=True)
 
+    st.markdown("### NVIDIA software and package stack")
+    st.markdown("""
+| NVIDIA software or package | What it does here |
+|---|---|
+| **NVIDIA CUDA 12** | Device runtime, memory allocation, contexts, and kernel execution |
+| **NVIDIA cuQuantum — cuStateVec** | Purpose-built state-vector primitives; `applyMatrix` executes every one-qubit mixer rotation in place |
+| **`cuquantum-python-cu12`** | Python bindings used to create the cuStateVec handle, declare CUDA data types, and call cuStateVec |
+| **CuPy — `cupy-cuda12x`** | CUDA-backed arrays for initialization, tiled cost phases, probabilities, expectations, and the correct accelerator fallback |
+| **NVIDIA driver tooling** | `nvidia-smi` supplies live process-memory observations for residency status and diagnosis |
+
+The split is measured rather than decorative: the mixer was **4.0–4.2× faster** through
+cuStateVec than through the generic CuPy reshape path. The diagonal measured effectively the
+same either way, so it stays on the lower-memory tiled CuPy path. Qiskit Aer GPU is not in the
+product path because its GPU wheels are x86_64-only and cannot run on the GB10's aarch64 host.
+""")
+
     st.markdown("### Request path — one optimization")
     st.markdown("""
 <div class="flow">operator sets nodes / layers / steps, presses Run
    │
    ├─ 1. build_grid()          synthesize substations, generation, load, line ratings
-   ├─ 2. build_ising()         3-term objective → J_ij couplings + offset      [xr7620]
+   ├─ 2. build_ising()         analytic or fitted objective → J_ij + offset    [xr7620]
    ├─ 3. select_backend()      GET /health → device, free memory, LIVE ceiling
    │
    ├─ 4. POST /qaoa/optimize ──────────────────────────────────────────────►  [GB10]

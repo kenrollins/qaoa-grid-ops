@@ -171,7 +171,7 @@ def render() -> None:
              "https://docs.nvidia.com/cuda/cuquantum/",
              "GPU-accelerated libraries for quantum circuit simulation. cuStateVec handles "
              "statevector operations; cuTensorNet handles tensor-network contraction.",
-             "The GB10 compute service executes its statevector kernels in <code>CuPy</code> — general-purpose GPU array operations on CUDA. cuQuantum/cuStateVec is installed and is the intended path for the specialised kernels, but does <b>not</b> currently execute (PLAN.md M3). "
+             "The GB10 compute service uses <code>cuStateVec</code> for the QAOA mixer and tiled <code>CuPy</code> CUDA kernels for the diagonal cost operation. The split is measured: cuStateVec made the mixer 4.0–4.2x faster, while moving the diagonal produced no material gain and required more memory. "
              "This was <b>forced, not chosen</b>: <code>qiskit-aer-gpu</code> ships x86_64 "
              "wheels only and cannot be installed on the GB10's aarch64 silicon at all, which "
              "is why simulation is a separate service from the UI.",

@@ -8,9 +8,10 @@ keeps the domain model in one place and this process purely computational.
 WHY THIS EXISTS AS A SERVICE, and not as `import qiskit_aer` in the UI:
 `qiskit-aer-gpu` publishes x86_64 wheels ONLY. There is no aarch64 build, so it
 cannot be installed on the GB10 at all. The GPU path on Grace Blackwell runs
-through CuPy, which does ship aarch64 wheels. (cuQuantum's cuStateVec also
-ships aarch64 and is installed here, but the kernels below are CuPy today --
-see PLAN.md M3.) Splitting the UI from the compute is therefore not an
+through CuPy and cuQuantum, which both ship aarch64 wheels. The mixer executes
+through cuStateVec; the tiled diagonal cost path stays in CuPy because that
+measured equally fast without allocating a full-width phase array. Splitting
+the UI from the compute is therefore not an
 architectural preference — it is the only way to put this workload on a GB10.
 
 Run:

@@ -1,105 +1,140 @@
 # How it works
 
 !!! info "Read this first — what this demonstration is"
-    This runs **exact statevector simulation** of a quantum algorithm on classical Dell
-    hardware. There is **no quantum processor** in the loop, and none is being claimed.
+    This runs **exact state-vector simulation** of a quantum algorithm on classical Dell hardware.
+    There is **no quantum processor** in the loop, and none is being claimed.
 
-    That is the point, not a limitation. QAOA is a **hybrid** algorithm: even with a
-    perfect QPU attached, the overwhelming majority of the work — building the
-    Hamiltonian, proposing parameters, converging the optimizer, decoding results into an
-    islanding plan — runs on classical infrastructure. Simulating the quantum half today
-    on the same hardware that will *drive* a real QPU tomorrow is how the algorithm, the
-    encoding, and the operator tooling get developed and validated now.
+    That is the point. Exact simulation exposes the complete probability distribution, noiseless
+    expectation, parameter landscape, and ground truth needed to develop an algorithm before
+    transferring it to physical hardware.
 
 ## 1. One qubit per substation
 
-Each substation gets a single binary decision: **which island does it join?** That is one
-qubit. With 12 substations there are 2¹² = **4,096** ways to split the grid.
+Each substation gets one binary decision: **which island does it join?** With n substations there
+are 2ⁿ assignments. Complementary bit strings exchange the names “island A” and “island B” but
+describe the same physical split.
 
-## 2. The objective becomes an energy function
+## 2. Two ways to construct the objective
 
-Three competing requirements become one cost function whose lowest energy is the best
-plan: minimise the power severed by the cut, keep each island able to supply its own load,
-and forbid the degenerate "one island, cut nothing" answer.
+### Analytic three-term QUBO
+
+The baseline writes three preferences directly as a quadratic energy:
 
 ```
 H(s) = A·Σ w_ij(1 − s_i s_j)/2  +  B·(Σ p_i s_i)²  +  C·(Σ s_i)²
         ↑ severed flow            ↑ island balance    ↑ non-degenerate
 ```
 
-The balance term couples **every node to every other node**, so the problem is dense
-all-to-all rather than the sparse transmission graph — at 24 nodes, 276 two-qubit
-rotations per layer.
+Here sᵢ is the ±1 island assignment, wᵢⱼ is solved base-case flow, and pᵢ is generation
+minus load. The balance term couples every node to every other node, so the Hamiltonian is dense:
+24 nodes produce 276 ZZ interactions per QAOA layer.
 
-### What the objective is choosing between
+This formulation is transparent and exactly quadratic. Its limitation is equally precise: it
+does not know the post-cut thermal loading or load shed that emerges only after solving the
+surviving network.
+
+### Emulator-fitted operational surrogate
+
+At small sizes the emulator can enumerate or sample assignments and score each one with classical
+DC power flow. The training target combines overload count, overload severity, load shed,
+interrupted flow, and infeasibility. Least squares then projects those labels onto the pairwise
+Ising basis:
+
+```
+L_power-flow(s) ≈ c + Σ_(i<j) J_ij s_i s_j
+```
+
+The fitted coefficients are a QUBO, so the quantum circuit and optimizer are unchanged. What
+changes is the proxy they optimize.
+
+The application retains training count, validation count, RMSE, and normalized RMSE with the run.
+A high error is not hidden: overload thresholds and power redistribution contain behavior an
+unconstrained quadratic model over the original bits cannot reproduce exactly. Auxiliary variables
+or continued classical screening are the honest alternatives.
+
+### What either objective is choosing between
 
 <div class="figure-wrap" markdown>
 
 --8<-- "figures/tradeoff.html"
 
 </div>
-<p class="figure-note">Every possible split, evaluated with real power flow. Left-to-right:
-customer load switched off. Bottom-to-top: how hard the worst surviving line is pushed.</p>
+<p class="figure-note">Every possible split, evaluated with power flow. Left-to-right is customer
+load switched off; bottom-to-top is the worst surviving line loading.</p>
 
-**The bottom-left corner is empty**, and no amount of better optimization changes that.
-Safety is bought by switching off customers. See [note 03](notes/03-what-a-qubo-cannot-express.md)
-for what this means for the encoding.
+The bottom-left corner is empty. No optimizer can recover a solution that the physical grid does
+not contain.
 
-## 3. Superposition — every plan at once
+## 3. QAOA loads the dice
+
+A Hadamard gate initializes equal amplitude over all assignments. Each QAOA layer alternates:
+
+- a **cost unitary**, which changes phase according to the selected objective;
+- a **mixer**, which converts phase differences into amplitude differences.
 
 <div class="figure-wrap" markdown>
 
 --8<-- "figures/interference.html"
 
 </div>
-<p class="figure-note">Every bar is one possible answer; its height is how likely the
-machine is to return it. Press play. The green bars are the best answer and its mirror
-image.</p>
+<p class="figure-note">Probability begins uniform and concentrates on lower-energy assignments.
+No bar reaches certainty: QAOA returns a distribution, not a guaranteed answer.</p>
 
-It starts flat — the machine is guessing. Each layer marks the good answers, then makes
-those marks interfere, so probability drains out of bad answers and piles into good ones.
+## 4. A classical optimizer chooses the circuit angles
 
-Notice what does **not** happen: no bar reaches certainty. QAOA does not find the answer,
-it **loads the dice**.
-
-## 4. The part that is actually hard — choosing the dials
+Each layer contributes a cost angle γ and mixer angle β. A classical optimizer repeatedly asks the
+simulator for ⟨H⟩ and refines those parameters.
 
 <div class="figure-wrap" markdown>
 
 --8<-- "figures/landscape.html"
 
 </div>
-<p class="figure-note">The surface a classical optimizer must search, for a single layer.
-Every point is one setting of γ and β. Darker is better.</p>
 
-- **β matters more than you would guess.** A broad good band and a broad bad band, sharply
-  separated. Choose β badly and no value of γ rescues the run.
-- **There is real structure here, and that is good news.** The flatness that kills
-  optimizers — the *barren plateau* — emerges as systems grow. **You develop where you can
-  still see the slope, then scale.**
-- **The two vertical lines are a real bug from this project.** We sized the γ search range
-  from the largest single coupling instead of the spread of the whole cost function.
-  Deeper circuits scored *worse* than shallow ones until it was fixed —
-  [note 02](notes/02-why-depth-can-hurt.md).
+Exact emulation exposed a real bug here: sizing γ from the largest individual coupling searched
+outside the informative basin on dense problems. Sizing it from the spread of the complete cost
+distribution restored useful depth behavior. See [note 02](notes/02-why-depth-can-hurt.md).
 
-## 5. Measure — the bitstring is the plan
+## 5. Keep the four answers separate
 
-Reading the register collapses it to one bitstring, and that bitstring *is* the
-operational answer: bit *i* says which island substation *i* joins.
+“The quantum answer” is ambiguous in a hybrid workflow:
 
-What comes back is a ranked shortlist, not a single answer. Each candidate is screened
-with a real power flow, and the electrically securest is applied.
+| Answer | What it establishes |
+|---|---|
+| Exact QUBO ground state | Whether the mathematical objective was optimized correctly |
+| Ideal QAOA argmax | Where the complete simulated distribution peaks |
+| Best finite-shot observation | What a measurement batch actually returned |
+| Applied plan | What survived classical feasibility and thermal-security screening |
+
+The applied plan may deliberately differ from the QAOA argmax. That is not quietly repaired output;
+it is the visible boundary between the quadratic proxy and the grid physics it cannot express.
+
+## 6. Admit physical reality one factor at a time
+
+The Algorithm Lab holds the optimized angles fixed and compares:
+
+1. exact ideal expectation;
+2. finite-shot estimation, whose statistical error shrinks as 1/√shots;
+3. generic depolarizing noise, which changes the state and reduces purity.
+
+Density-matrix noise costs 2^(2n) memory rather than 2ⁿ, which is why the same GB10 reaches roughly
+half as many qubits with exact noise enabled. The model is generic, not calibrated to a named QPU.
+
+## 7. Preview device connectivity
+
+The logical Hamiltonian is dense, while physical devices are usually sparse. The application
+estimates the SWAP and two-qubit-gate expansion under fixed placement on all-to-all, square-grid,
+ring, and linear graphs. The assumptions are printed with the result. A named hardware claim still
+requires target-specific transpilation and calibration.
 
 ## Who does what
 
-| Quantum layer (simulated here) | Classical layer (Dell hardware, always) |
+| Quantum layer, simulated here | Classical layer, always required |
 |---|---|
-| Hold a superposition over all 2ⁿ partitions | Build the grid model, derive the couplings |
-| Apply the cost unitary — phase-separate by quality | Propose and refine (γ, β) — the outer optimizer |
-| Apply the mixer — interfere phases into amplitudes | Evolve and store the state vector |
-| Return ⟨H⟩ for the current parameters | Decode bitstrings, verify feasibility, produce the schedule |
+| Hold amplitudes over 2ⁿ assignments | Build or fit the objective |
+| Apply cost phases and mixer rotations | Optimize γ and β |
+| Produce a measurement distribution | Label training partitions with power flow |
+| Return samples on physical hardware | Check feasibility, security, and MW served |
 
-In the NISQ era the quantum processor is a **subroutine inside a classical loop**. Every
-optimizer iteration is a fresh circuit; between iterations, all the work is classical.
-Which means the practical bottleneck for hybrid quantum computing today is **classical
-infrastructure**.
+The emulator is therefore not merely a stand-in for a QPU. It is the instrument used to inspect,
+debug, compare, and validate the algorithm while those questions still have exact answers.

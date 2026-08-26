@@ -8,16 +8,16 @@ hide:
 # QAOA Grid Ops
 
 !!! quote ""
-    **Hybrid quantum-classical grid optimization — QAOA microgrid islanding on a Dell Pro
-    Max GB10, and where classical simulation of quantum algorithms actually runs out.**
+    **Quantum emulation as an algorithm-development instrument — diagnose, improve, and
+    validate QAOA microgrid islanding on a Dell Pro Max GB10.**
 
     By **Ken Rollins**, Federal Field CTO — Emerging Technologies at Dell.
 
 ---
 
-A working demonstrator that solves controlled microgrid islanding with QAOA on a Dell Pro
-Max GB10, built to find where classical simulation of quantum algorithms actually runs
-out — and what that means for the hardware you need to develop them.
+A working demonstrator that uses exact emulation to expose when QAOA correctly optimizes
+the wrong operational objective, construct an alternative quadratic surrogate, and measure
+what improves before physical quantum hardware enters the loop.
 
 !!! quote ""
     A desktop-class GB10 Grace Blackwell carries **30 qubits** of dense, all-to-all QAOA
@@ -25,10 +25,10 @@ out — and what that means for the hardware you need to develop them.
 
 ## What the demonstration does
 
-A transmission grid loses a line. There are tens of thousands of ways to split what
-remains into two self-sufficient microgrids so the failure cannot cascade, and one of them
-is best. QAOA searches all of them at once; real DC power flow decides which answer is
-electrically survivable.
+A transmission grid loses a line. The baseline QUBO and an emulator-fitted operational
+surrogate solve the same contingency. The Algorithm Lab retains both runs and compares
+objective quality, quantum probability concentration, MW served, overloads, finite-shot
+behavior, and noise. Real DC power flow decides which proposals are electrically survivable.
 
 <div class="figure-wrap" markdown>
 
@@ -50,6 +50,11 @@ The grid problem is the vehicle. The argument is that **developing** a quantum a
 is the hard part, that development happens in classical simulation, and that simulation
 hits walls you can compute exactly.
 
+- **A correct solver can optimize the wrong objective.** Exact emulation separates
+  algorithm failure from formulation failure while ground truth is still affordable.
+- **The emulator can supply training labels.** Power-flow-scored partitions fit an
+  operational QUBO surrogate, with held-out error kept visible.
+- **Ideal, finite-shot, and noisy results are different experiments**, not one number.
 - **Every qubit doubles the memory.** Turn on noise and it squares instead.
 - **Measured on our GB10:** 30 qubits clean, 14 noisy, same machine, same second.
 - **The sizing figure is the largest *coherent* memory domain**, not total GPU memory —
@@ -73,8 +78,8 @@ Every figure here is measured, computed from first principles, or cited, and say
 
 | If you want | Read |
 |---|---|
-| the scenario, start to finish | [The demonstration](demo.md) |
-| what QAOA actually does | [How it works](how-it-works.md) |
+| the baseline → diagnosis → improved-objective story | [The demonstration](demo.md) |
+| how both formulations and the hybrid pipeline work | [How it works](how-it-works.md) |
 | the hardware argument | [Why it needs this hardware](hardware.md) |
 | depth, with provenance | [Technical notes](notes/index.md) |
 | how it is built | [Architecture](architecture.md) |

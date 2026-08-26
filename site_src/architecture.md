@@ -106,9 +106,10 @@ convergence telemetry, the exportable islanding schedule, and the domain model i
 transmission topology, generation and load, and the QUBO construction. Holds **no quantum
 state** — it sends couplings and receives energies.
 
-**2 — Quantum formulation.** Three competing objectives reduced to a pure-quadratic Ising
-Hamiltonian, dense all-to-all because the balance term couples every node to every other.
-SciPy COBYLA tunes the (γ, β) schedule.
+**2 — Quantum formulation.** The baseline reduces three analytic objectives to a
+pure-quadratic Ising Hamiltonian. The alternative formulation scores partitions with DC
+power flow and fits those labels onto the same pairwise Ising basis, retaining held-out
+error as run provenance. Both are dense all-to-all. SciPy COBYLA tunes the (γ, β) schedule.
 
 **3 — Hardware acceleration.** Dense state-vector evolution over 2ⁿ complex amplitudes as
 CUDA kernels; the state lives in GPU memory and never returns to the host during a run.
@@ -120,6 +121,29 @@ The QAOA mixer runs through **cuStateVec**, NVIDIA's purpose-built statevector k
 unitary deliberately stays on the tiled CuPy path — routing it through cuStateVec measured
 4.18× against 4.17× while requiring the full 2ⁿ phase array in device memory, 16 GB at 30
 qubits. Mixer accelerated, diagonal tiled: full speed, full ceiling.
+
+### NVIDIA software stack
+
+The accelerator path is a small, explicit stack rather than a general quantum SDK:
+
+| NVIDIA software or package | Role in this project | Execution boundary |
+|---|---|---|
+| **NVIDIA CUDA 12** | Device runtime, memory allocation, kernel execution, and the context used by both accelerated libraries | GB10 only |
+| **NVIDIA cuQuantum — cuStateVec** | Purpose-built state-vector primitives. `applyMatrix` executes every one-qubit QAOA mixer rotation in place | GB10 simulation service |
+| **`cuquantum-python-cu12`** | Python bindings used to create/destroy the cuStateVec handle, declare CUDA data types, and invoke cuStateVec operations | GB10 simulation virtual environment |
+| **CuPy — `cupy-cuda12x`** | CUDA-backed array layer used for state initialization, the tiled cost diagonal and phase multiply, probabilities, expectations, and the correct fallback if cuStateVec is unavailable | GB10 simulation service; optional local GPU path |
+| **NVIDIA driver tooling** | `nvidia-smi` supplies live process-memory observations used by residency status and operational diagnosis | GB10 host |
+
+The division is intentional. The mixer measured **4.0–4.2× faster** through cuStateVec than
+through the generic CuPy reshape path. Moving the diagonal cost operation to cuStateVec measured
+no material gain and required another full-width complex array, so it remains tiled in CuPy.
+
+The health response reports the path that actually initialized. If a cuStateVec handle cannot be
+created, execution falls back to correct CuPy kernels and the result is labelled `CuPy`; it does
+not claim cuStateVec because the package happens to be installed.
+
+**Not in the product path:** Qiskit Aer GPU. Its published GPU wheels are x86_64-only and cannot
+be installed on the GB10's aarch64 environment. The service uses the NVIDIA libraries directly.
 
 **4 — Dell infrastructure.** Entirely on-premise. Grid topology, generation profiles and
 contingency plans never leave the building.
@@ -134,13 +158,13 @@ sequenceDiagram
     participant G as GB10 · gridops-qsim
     O->>H: nodes, layers, steps → Run
     H->>H: build_grid() — substations, generation, load, ratings
-    H->>H: build_ising() — 3-term objective → J couplings + offset
+    H->>H: build_ising() — analytic or fitted objective → J couplings + offset
     H->>G: GET /health
     G-->>H: device, free memory, LIVE qubit ceiling
     H->>G: POST /qaoa/optimize { J, layers, steps }
     Note over G: cost_diagonal() tiled, bounded scratch<br/>ramp init + 1-D scale scan<br/>COBYLA: evolve + ⟨H⟩ exact
     G-->>H: energy history, top states, timings, kernel path
-    H->>H: evaluate_partition() — MW severed, balance, FEASIBILITY
+    H->>H: evaluate_partition() — MW, feasibility, thermal-security screening
     H->>H: brute_force() exact optimum, if ≤ 16 qubits
     H-->>O: operator-legible schedule + JSON export
 ```
@@ -211,6 +235,8 @@ stating: after a GB10 reboot the control plane returns and `gridops-qsim` does n
 That is handled rather than ignored — the control plane reconciles its durable record
 against what is observably true on start, and never mutates the machine on its own —
 but the simulation service still has to be claimed back up.
-The objective has no thermal term (see [note 03](notes/03-what-a-qubo-cannot-express.md)).
+The analytic objective has no thermal term. The fitted surrogate approximates thermal outcomes
+but cannot represent their thresholds exactly (see [notes 03](notes/03-what-a-qubo-cannot-express.md)
+and [08](notes/08-can-emulation-train-a-better-qubo.md)).
 Roughly 3× of theoretical memory-bandwidth headroom at 30 qubits is unexplained and would
 need profiling to attribute.

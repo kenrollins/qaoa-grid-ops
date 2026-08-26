@@ -94,8 +94,8 @@ the COBYLA outer loop, the charting layer, the application framework.
 
 ## What is ours, and therefore unsourced
 
-The three-term islanding QUBO, the DC power-flow model and its rating calibration, the N-1
-contingency screen, the physics-aware post-selection over QAOA's measured shortlist, the
-trajectory implementation, and every measured figure. They are described in the code with
-their reasoning and their known limitations — including the ones that make the demo look
-worse.
+The analytic three-term islanding QUBO, the emulator-fitted operational surrogate and its
+validation study, the DC power-flow model and rating calibration, the N-1 contingency screen,
+physics-aware post-selection over QAOA's measured shortlist, the trajectory implementation,
+and every measured figure. They are described in the code with their reasoning and known
+limitations — including the ones that make the demo look worse.
