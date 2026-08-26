@@ -11,6 +11,16 @@ one_line: "LiteLLM routes and meters inference, but QAOA Grid Ops is not an infe
 
 # Who owns the GB10 while a simulation runs?
 
+!!! info "Superseded in part by [note 10](10-an-owner-only-hand-on-the-gb10.md)"
+    The *analysis* below still holds: the integration point is residency, not request
+    routing, and the four-step workflow is still the right one. The *implementation* it
+    describes — a shell script keeping its evacuation record in the invoking user's state
+    directory — was replaced on 2026-08-26 by a service on the GB10 that owns the record,
+    serializes every operation, and enforces authorization itself. Two independent things
+    that can each evacuate the machine, with no shared lock, is a race. Read note 10
+    before implementing anything from this page.
+
+
 LiteLLM and QAOA Grid Ops use the same physical GB10 for different protocols. LiteLLM routes
 OpenAI-compatible inference requests to models managed by the GB10 vLLM orchestrator. Grid Ops
 sends Ising couplings and circuit parameters to a dedicated FastAPI service, `gridops-qsim`, on

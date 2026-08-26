@@ -23,7 +23,7 @@ See `../STYLE.md` for the standards these are written to.
 | [06](06-why-emulation-needs-an-experiment-loop.md) | What makes quantum emulation an algorithm-development tool? | Note 01 |
 | [07](07-what-the-first-algorithm-lab-slice-proves.md) | What does the first Algorithm Lab slice prove? | Note 06 |
 | [08](08-can-emulation-train-a-better-qubo.md) | Can emulation train a better operational QUBO? | Notes 03, 06 |
-| [09](09-who-owns-the-gb10.md) | Who owns the GB10 while a simulation runs? | None |
+| [09](09-who-owns-the-gb10.md) | Who owns the GB10 while a simulation runs? *(implementation superseded by 10)* | None |
 | [10](10-an-owner-only-hand-on-the-gb10.md) | What changes when the demo can take the machine itself? | Note 09 |
 
 ## Planned

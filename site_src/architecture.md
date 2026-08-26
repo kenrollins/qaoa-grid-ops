@@ -14,7 +14,12 @@ flowchart LR
         api["<b>gridops-qsim</b><br/>FastAPI :8600"]
         kern["<b>cuStateVec + CuPy</b><br/>CUDA 12 · Blackwell sm_121"]
         mem["<b>128 GB unified memory</b><br/>owns the state vector"]
+        res["<b>gridops-residency</b><br/>:8610 · owner-only<br/>claim / release"]
+        llm["<b>inference orchestrator</b><br/>the other tenant of the<br/>same unified memory"]
         api --- kern --- mem
+        res -. "starts / stops" .-> api
+        res -. "unloads / restores" .-> llm
+        llm --- mem
     end
 
     subgraph host["Application host · x86_64"]
@@ -27,11 +32,14 @@ flowchart LR
 
     orch -- "couplings J, γ, β<br/>HTTP + JSON" --> api
     api -- "energies, convergence,<br/>timings, kernel path" --> orch
+    ui -- "claim / release<br/>+ forwarded identity" --> res
 
     classDef a fill:#0b1622,stroke:#00b4d8,color:#e6edf3
     classDef b fill:#131a12,stroke:#3ddc97,color:#e6edf3
+    classDef c fill:#1c1622,stroke:#b48ead,color:#e6edf3
     class host a
     class gb10 b
+    class res,llm c
 ```
 
 **No quantum state crosses that line.** The host sends coupling constants and receives
@@ -151,6 +159,18 @@ by brute force and shows QAOA's result against it — including the cases where 
 | `POST /qaoa/realism` | the same circuit ideal / finite-shot / noisy |
 | `POST /qaoa/verify` | proves the diagonal fast path ≡ gate-by-gate RZZ |
 
+Separately, on the same machine and **not** part of the simulation API:
+
+| `gridops-residency` :8610 | Purpose |
+|---|---|
+| `GET /health` | liveness only — the one endpoint that needs no credential, so it reports nothing else |
+| `GET /status` | the durable claim record *and* what is observably true right now — **non-mutating** |
+| `POST /claim` | record the resident models → unload them → start `gridops-qsim`. Idempotent |
+| `POST /release` | stop `gridops-qsim` → restore exactly the recorded set. Idempotent, and the recovery path |
+
+No public route, no browser path, and it re-checks the caller's group itself
+rather than trusting an interface to hide a button.
+
 ## Measured performance
 
 Dense all-to-all QAOA, p=2, cuStateVec kernels, 2026-07-30:
@@ -181,10 +201,16 @@ reports GB10 hardware is exactly the unearned claim this project exists to avoid
 | Quantum dependency | none — no cloud QPU, no vendor queue |
 | Hardware | TAA-compliant, air-gappable |
 | Front door | identity-proxy with passkey authentication |
+| Audience | **owner-only.** It was a guest-visible demo until it gained controls that mutate GPU residency; a demo that can take a shared resource away from its neighbours is an operator tool |
 
 ## What is not done
 
-No systemd unit for the simulation service, so it does not survive a host reboot.
+No systemd unit for the **simulation** service, so it does not survive a host
+reboot. The residency control plane does have one, which makes the asymmetry worth
+stating: after a GB10 reboot the control plane returns and `gridops-qsim` does not.
+That is handled rather than ignored — the control plane reconciles its durable record
+against what is observably true on start, and never mutates the machine on its own —
+but the simulation service still has to be claimed back up.
 The objective has no thermal term (see [note 03](notes/03-what-a-qubo-cannot-express.md)).
 Roughly 3× of theoretical memory-bandwidth headroom at 30 qubits is unexplained and would
 need profiling to attribute.
