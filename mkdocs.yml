@@ -126,6 +126,6 @@ nav:
       - 07 - What the first Algorithm Lab slice proves: notes/07-what-the-first-algorithm-lab-slice-proves.md
       - 08 - Can emulation train a better QUBO: notes/08-can-emulation-train-a-better-qubo.md
       - 09 - Who owns the GB10 while a simulation runs: notes/09-who-owns-the-gb10.md
-      - 10 - An owner-only hand on the GB10: notes/10-an-owner-only-hand-on-the-gb10.md
+      - 10 - Claiming a shared machine: notes/10-claiming-a-shared-accelerator.md
   - Sources: sources.md
   - About: about.md

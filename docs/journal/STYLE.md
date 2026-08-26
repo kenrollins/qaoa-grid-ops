@@ -70,6 +70,16 @@ notes will be read by people who know the literature.
 - **Corrections are first-class.** When a claim here was wrong, the corrected
   note explains the error and why it was plausible. That is instructive; a
   silent edit is not.
+- **A superseded implementation is not a wrong claim.** These are different
+  things and the rule above covers only the first. A measurement that was wrong
+  stays on the page with its correction, because how it was wrong is the
+  lesson. A design that has simply been replaced does NOT: rewrite the note to
+  describe what the system does now, and keep from the old version only what
+  taught something general — framed as a finding, per the voice rules.
+  Conflating the two produces a note that opens by telling the reader it is out
+  of date, which serves the archive and not the reader. If a note cannot be
+  understood without knowing what it used to say, it needs rewriting, not a
+  banner.
 
 ## Conventions
 
